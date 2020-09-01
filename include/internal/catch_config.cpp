@@ -72,6 +72,7 @@ namespace Catch {
     int Config::abortAfter() const                     { return m_data.abortAfter; }
     bool Config::showInvisibles() const                { return m_data.showInvisibles; }
     Verbosity Config::verbosity() const                { return m_data.verbosity; }
+    std::string Config::attachment() const             { return m_data.attachment; }
 
     bool Config::benchmarkNoAnalysis() const                      { return m_data.benchmarkNoAnalysis; }
     int Config::benchmarkSamples() const                          { return m_data.benchmarkSamples; }

@@ -78,7 +78,7 @@ namespace Catch {
         virtual UseColour::YesOrNo useColour() const = 0;
         virtual std::vector<std::string> const& getSectionsToRun() const = 0;
         virtual Verbosity verbosity() const = 0;
-
+        virtual std::string attachment() const = 0;
         virtual bool benchmarkNoAnalysis() const = 0;
         virtual int benchmarkSamples() const = 0;
         virtual double benchmarkConfidenceInterval() const = 0;

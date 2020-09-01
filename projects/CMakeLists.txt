@@ -282,6 +282,7 @@ set(REPORTER_HEADERS
         ${HEADER_DIR}/reporters/catch_reporter_listening.h
         ${HEADER_DIR}/reporters/catch_reporter_tap.hpp
         ${HEADER_DIR}/reporters/catch_reporter_teamcity.hpp
+        ${HEADER_DIR}/reporters/catch_reporter_vstest.h
         ${HEADER_DIR}/reporters/catch_reporter_xml.h
         ${HEADER_DIR}/reporters/catch_reporter_sonarqube.hpp
         )
@@ -291,6 +292,7 @@ set(REPORTER_SOURCES
         ${HEADER_DIR}/reporters/catch_reporter_console.cpp
         ${HEADER_DIR}/reporters/catch_reporter_junit.cpp
         ${HEADER_DIR}/reporters/catch_reporter_listening.cpp
+        ${HEADER_DIR}/reporters/catch_reporter_vstest.cpp
         ${HEADER_DIR}/reporters/catch_reporter_xml.cpp
         )
 set(REPORTER_FILES ${REPORTER_HEADERS} ${REPORTER_SOURCES})
@@ -314,6 +316,7 @@ include(CTest)
 
 add_executable(SelfTest ${TEST_SOURCES} ${IMPL_SOURCES} ${REPORTER_SOURCES} ${SURROGATE_SOURCES} ${HEADERS})
 target_include_directories(SelfTest PRIVATE ${HEADER_DIR})
+target_link_libraries(SelfTest rpcrt4.lib)
 
 # It took CMake until 3.8 to abandon the doomed approach of enumerating
 # required features so we just list C++11 features to support older ones.

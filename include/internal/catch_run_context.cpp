@@ -360,7 +360,7 @@ namespace Catch {
         return m_totals.assertions.failed >= static_cast<std::size_t>(m_config->abortAfter());
     }
 
-    void RunContext::runCurrentTest(std::string & redirectedCout, std::string & redirectedCerr) {
+    void RunContext::runCurrentTest(std::string & redirectedCoutForTest, std::string & redirectedCerrForTest) {
         auto const& testCaseInfo = m_activeTestCase->getTestCaseInfo();
         SectionInfo testCaseSection(testCaseInfo.lineInfo, testCaseInfo.name);
         m_reporter->sectionStarting(testCaseSection);
@@ -371,16 +371,21 @@ namespace Catch {
 
         seedRng(*m_config);
 
+        std::string redirectedCoutForSection;
+        std::string redirectedCerrForSection;
+
         Timer timer;
         CATCH_TRY {
             if (m_reporter->getPreferences().shouldRedirectStdOut) {
 #if !defined(CATCH_CONFIG_EXPERIMENTAL_REDIRECT)
-                RedirectedStreams redirectedStreams(redirectedCout, redirectedCerr);
+                RedirectedStreams redirectedStreams( redirectedCoutForSection,
+                                                     redirectedCerrForSection );
 
                 timer.start();
                 invokeActiveTestCase();
 #else
-                OutputRedirect r(redirectedCout, redirectedCerr);
+                OutputRedirect r( redirectedCoutForSection,
+                                  redirectedCerrForSection );
                 timer.start();
                 invokeActiveTestCase();
 #endif
@@ -407,7 +412,14 @@ namespace Catch {
         m_messages.clear();
         m_messageScopes.clear();
 
-        SectionStats testCaseSectionStats(testCaseSection, assertions, duration, missingAssertions);
+        redirectedCoutForTest += redirectedCoutForSection;
+        redirectedCerrForTest += redirectedCerrForSection;
+
+        SectionStats testCaseSectionStats(
+            testCaseSection, assertions, duration, missingAssertions );
+        testCaseSectionStats.stdOut = redirectedCoutForSection;
+        testCaseSectionStats.stdErr = redirectedCerrForSection;
+
         m_reporter->sectionEnded(testCaseSectionStats);
     }
 

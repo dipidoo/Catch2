@@ -72,7 +72,9 @@ namespace Catch {
         }
 
         void sectionEnded(SectionStats const& /* _sectionStats */) override {
-            m_sectionStack.pop_back();
+            if ( !m_sectionStack.empty() ) {
+                m_sectionStack.pop_back();
+            }
         }
         void testCaseEnded(TestCaseStats const& /* _testCaseStats */) override {
             currentTestCaseInfo.reset();

@@ -60,6 +60,7 @@ namespace Catch {
         std::string outputFilename;
         std::string name;
         std::string processName;
+        std::string attachment;
 #ifndef CATCH_CONFIG_DEFAULT_REPORTER
 #define CATCH_CONFIG_DEFAULT_REPORTER "console"
 #endif
@@ -112,6 +113,7 @@ namespace Catch {
         int abortAfter() const override;
         bool showInvisibles() const override;
         Verbosity verbosity() const override;
+        std::string attachment() const override;
         bool benchmarkNoAnalysis() const override;
         int benchmarkSamples() const override;
         double benchmarkConfidenceInterval() const override;

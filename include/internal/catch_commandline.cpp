@@ -127,6 +127,10 @@ namespace Catch {
                 return ParserResult::runtimeError( "Unrecognized reporter, '" + reporter + "'. Check available with --list-reporters" );
             return ParserResult::ok( ParseResultType::Matched );
         };
+        auto const setAttachment = [&]( std::string const& attachment ) {
+            config.attachment = attachment;
+            return ParserResult::ok( ParseResultType::Matched );
+        };
 
         auto cli
             = ExeName( config.processName )
@@ -191,6 +195,9 @@ namespace Catch {
             | Opt( config.listReporters )
                 ["--list-reporters"]
                 ( "list all reporters" )
+            | Opt( setAttachment, "attachmentPath" )
+                ["--attachment"]
+                ( "specify an attachment for the test run results" )
             | Opt( setTestOrder, "decl|lex|rand" )
                 ["--order"]
                 ( "test case order (defaults to decl)" )
