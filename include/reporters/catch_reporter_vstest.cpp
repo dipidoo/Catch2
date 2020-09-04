@@ -508,23 +508,24 @@ namespace Catch {
         }
 
         if ( lastSectionStats != nullptr ) {
+            auto&& lastSectionInfo = lastSectionStats->sectionInfo;
             // Info messages and other input will show up *before* sections
             // get to serialize their redirected data. Delineate when we're
             // appending in this manner to avoid the perception of timing
             // mismatch (all info messages will show up first, not
             // interleaved with printf output, as an example)
             if ( !m_currentUnwindContext.stdOut.empty() &&
-                 !lastSectionStats->stdOut.empty() ) {
+                 !lastSectionInfo.stdOut.empty() ) {
                 m_currentUnwindContext.stdOut +=
                     "--- full standard output follows ---\n";
             }
-            m_currentUnwindContext.stdOut += lastSectionStats->stdOut;
+            m_currentUnwindContext.stdOut += lastSectionInfo.stdOut;
             if ( !m_currentUnwindContext.stdErr.empty() &&
-                 !lastSectionStats->stdErr.empty() ) {
+                 !lastSectionInfo.stdErr.empty() ) {
                 m_currentUnwindContext.stdErr +=
                     "--- full standard error output follows ---\n";
             }
-            m_currentUnwindContext.stdErr += lastSectionStats->stdErr;
+            m_currentUnwindContext.stdErr += lastSectionInfo.stdErr;
         }
 
         m_currentUnwindContext.elapsedNanoseconds =

@@ -96,6 +96,7 @@ namespace Catch {
         OutputRedirect(OutputRedirect&&) = delete;
         OutputRedirect& operator=(OutputRedirect&&) = delete;
 
+        void flush();
 
         OutputRedirect(std::string& stdout_dest, std::string& stderr_dest);
         ~OutputRedirect();

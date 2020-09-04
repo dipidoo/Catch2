@@ -110,8 +110,6 @@ namespace Catch {
         Counts assertions;
         double durationInSeconds;
         bool missingAssertions;
-        std::string stdOut;
-        std::string stdErr;
     };
 
     struct TestCaseStats {

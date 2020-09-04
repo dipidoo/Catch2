@@ -28,6 +28,8 @@ namespace Catch {
 
         std::string name;
         std::string description; // !Deprecated: this will always be empty
+        std::string stdOut;
+        std::string stdErr;
         SourceLineInfo lineInfo;
     };
 

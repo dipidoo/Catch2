@@ -118,17 +118,21 @@ namespace Catch {
         dup2(fileno(m_stderrFile.getFile()), 2);
     }
 
-    OutputRedirect::~OutputRedirect() {
+    OutputRedirect::~OutputRedirect() { 
+        flush();
+    }
+
+    void OutputRedirect::flush() {
         Catch::cout() << std::flush;
-        fflush(stdout);
+        fflush( stdout );
         // Since we support overriding these streams, we flush cerr
         // even though std::cerr is unbuffered
         Catch::cerr() << std::flush;
         Catch::clog() << std::flush;
-        fflush(stderr);
+        fflush( stderr );
 
-        dup2(m_originalStdout, 1);
-        dup2(m_originalStderr, 2);
+        dup2( m_originalStdout, 1 );
+        dup2( m_originalStderr, 2 );
 
         m_stdoutDest += m_stdoutFile.getContents();
         m_stderrDest += m_stderrFile.getContents();

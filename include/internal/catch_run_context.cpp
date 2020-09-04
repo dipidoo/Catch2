@@ -183,7 +183,8 @@ namespace Catch {
             m_lastAssertionPassed = true;
         } else if (!result.isOk()) {
             m_lastAssertionPassed = false;
-            if( m_activeTestCase->getTestCaseInfo().okToFail() )
+            if( m_activeTestCase
+                && m_activeTestCase->getTestCaseInfo().okToFail() )
                 m_totals.assertions.failedButOk++;
             else
                 m_totals.assertions.failed++;
@@ -321,25 +322,32 @@ namespace Catch {
 
         handleUnfinishedSections();
 
-        // Recreate section for test case (as we will lose the one that was in scope)
+#if defined( CATCH_CONFIG_EXPERIMENTAL_REDIRECT )
+        // Under normal execution, OutputRedirect is flushed via RAII destruction. In this fatal
+        // case, the RAII object remains in scope while we need to report its contents -- so we
+        // flush it manually.
+        if ( m_activeRedirect != nullptr ) {
+            m_activeRedirect->flush();
+        }
+#endif
         auto const& testCaseInfo = m_activeTestCase->getTestCaseInfo();
-        SectionInfo testCaseSection(testCaseInfo.lineInfo, testCaseInfo.name);
-
+        SectionInfo dummySection(testCaseInfo.lineInfo, testCaseInfo.name);
+        if (m_activeSection == nullptr) {
+            m_activeSection = &dummySection;
+        }
         Counts assertions;
         assertions.failed = 1;
-        SectionStats testCaseSectionStats(testCaseSection, assertions, 0, false);
+        SectionStats testCaseSectionStats(*m_activeSection, assertions, 0, false);
         m_reporter->sectionEnded(testCaseSectionStats);
-
-        auto const& testInfo = m_activeTestCase->getTestCaseInfo();
+        m_activeSection = nullptr;
 
         Totals deltaTotals;
         deltaTotals.testCases.failed = 1;
         deltaTotals.assertions.failed = 1;
-        m_reporter->testCaseEnded(TestCaseStats(testInfo,
-                                  deltaTotals,
-                                  std::string(),
-                                  std::string(),
-                                  false));
+        TestCaseStats endStats{
+            testCaseInfo, deltaTotals, std::string(), std::string(), false };
+        m_reporter->testCaseEnded(endStats);
+        m_activeTestCase = nullptr;
         m_totals.testCases.failed++;
         testGroupEnded(std::string(), m_totals, 1, 1);
         m_reporter->testRunEnded(TestRunStats(m_runInfo, m_totals, false));
@@ -361,9 +369,14 @@ namespace Catch {
     }
 
     void RunContext::runCurrentTest(std::string & redirectedCoutForTest, std::string & redirectedCerrForTest) {
+        // Under normal execution, the lifetime of a section will begin and end within this function.
+        // In the event of abnormal termination, though, we need a reference to the section data for
+        // unwind purposes.
         auto const& testCaseInfo = m_activeTestCase->getTestCaseInfo();
         SectionInfo testCaseSection(testCaseInfo.lineInfo, testCaseInfo.name);
+        m_activeSection = &testCaseSection;
         m_reporter->sectionStarting(testCaseSection);
+
         Counts prevAssertions = m_totals.assertions;
         double duration = 0;
         m_shouldReportUnexpected = true;
@@ -371,23 +384,22 @@ namespace Catch {
 
         seedRng(*m_config);
 
-        std::string redirectedCoutForSection;
-        std::string redirectedCerrForSection;
-
         Timer timer;
         CATCH_TRY {
             if (m_reporter->getPreferences().shouldRedirectStdOut) {
 #if !defined(CATCH_CONFIG_EXPERIMENTAL_REDIRECT)
-                RedirectedStreams redirectedStreams( redirectedCoutForSection,
-                                                     redirectedCerrForSection );
+                RedirectedStreams redirectedStreams( testCaseSection.stdOut,
+                                                     testCaseSection.stdErr );
 
                 timer.start();
                 invokeActiveTestCase();
 #else
-                OutputRedirect r( redirectedCoutForSection,
-                                  redirectedCerrForSection );
+                OutputRedirect r( testCaseSection.stdOut,
+                                  testCaseSection.stdErr );
+                m_activeRedirect = &r;
                 timer.start();
                 invokeActiveTestCase();
+                m_activeRedirect = nullptr;
 #endif
             } else {
                 timer.start();
@@ -412,15 +424,14 @@ namespace Catch {
         m_messages.clear();
         m_messageScopes.clear();
 
-        redirectedCoutForTest += redirectedCoutForSection;
-        redirectedCerrForTest += redirectedCerrForSection;
+        redirectedCoutForTest += testCaseSection.stdOut;
+        redirectedCerrForTest += testCaseSection.stdErr;
 
         SectionStats testCaseSectionStats(
             testCaseSection, assertions, duration, missingAssertions );
-        testCaseSectionStats.stdOut = redirectedCoutForSection;
-        testCaseSectionStats.stdErr = redirectedCerrForSection;
 
         m_reporter->sectionEnded(testCaseSectionStats);
+        m_activeSection = nullptr;
     }
 
     void RunContext::invokeActiveTestCase() {

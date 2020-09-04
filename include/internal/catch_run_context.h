@@ -23,6 +23,10 @@
 #include "catch_assertionhandler.h"
 #include "catch_fatal_condition.h"
 
+#if defined(CATCH_CONFIG_EXPERIMENTAL_REDIRECT)
+#include "catch_output_redirect.h"
+#endif
+
 #include <string>
 
 namespace Catch {
@@ -134,6 +138,10 @@ namespace Catch {
         TestRunInfo m_runInfo;
         IMutableContext& m_context;
         TestCase const* m_activeTestCase = nullptr;
+        SectionInfo* m_activeSection = nullptr;
+#if defined( CATCH_CONFIG_EXPERIMENTAL_REDIRECT )
+        OutputRedirect* m_activeRedirect = nullptr;
+#endif
         ITracker* m_testCaseTracker = nullptr;
         Option<AssertionResult> m_lastResult;
 
