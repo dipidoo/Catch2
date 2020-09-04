@@ -22,10 +22,7 @@
 #include "catch_timer.h"
 #include "catch_assertionhandler.h"
 #include "catch_fatal_condition.h"
-
-#if defined(CATCH_CONFIG_EXPERIMENTAL_REDIRECT)
 #include "catch_output_redirect.h"
-#endif
 
 #include <string>
 
