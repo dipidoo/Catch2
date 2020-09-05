@@ -185,12 +185,29 @@ namespace Catch {
         }
         return errorMessageStream.str();
     }
-    std::string StreamingReporterUnwindContext::constructStackMessage() const {
+    // Emits an assertion origination message of the form:
+    //  at Catch.Module.Method() in /source/path/file.cpp:line 123
+    // Notably:
+    //  - A provided prefix (like 'C:\source\project') will be omitted
+    //  - Backslashes ('\') will be converted to forward slashes ('/')
+    std::string StreamingReporterUnwindContext::constructStackMessage(
+        std::string const& sourcePrefix) const {
         ReusableStringStream stackStream;
         for ( auto const& assertionInfo : allTerminatedAssertions ) {
             auto&& sourceInfo = assertionInfo.assertionResult.getSourceInfo();
-            stackStream << "at Catch.Module.Method() in " << sourceInfo.file
-                        << ":line " << sourceInfo.line << '\n';
+            auto index = 0;
+            if ( sourcePrefix.compare( 0,
+                                        sourcePrefix.length(),
+                                        sourceInfo.file,
+                                        sourcePrefix.length() ) == 0 ) {
+                index = (int)sourcePrefix.length();
+            }
+            stackStream << "at Catch.Module.Method() in ";
+            for ( auto c = sourceInfo.file[index]; c != '\0';
+                  c = sourceInfo.file[++index] ) {
+                stackStream << ( c == '\\' ? '/' : c );
+            }
+            stackStream << ":line " << sourceInfo.line << '\n';
         }
         return stackStream.str();
     }
@@ -343,7 +360,8 @@ namespace Catch {
                     .writeText( unwindContext.stdErr, XmlFormatting::Newline );
             }
             auto errorMessage = unwindContext.constructErrorMessage();
-            auto stackMessage = unwindContext.constructStackMessage();
+            auto stackMessage =
+                unwindContext.constructStackMessage( m_config->sourcePrefix() );
             if ( !errorMessage.empty() || !stackMessage.empty() ) {
                 auto errorInfoElement = m_xml.scopedElement( "ErrorInfo" );
                 if ( !errorMessage.empty() ) {

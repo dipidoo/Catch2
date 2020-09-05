@@ -131,6 +131,10 @@ namespace Catch {
             config.attachment = attachment;
             return ParserResult::ok( ParseResultType::Matched );
         };
+        auto const setSourcePrefix = [&]( std::string const& sourcePrefix ) {
+            config.sourcePathPrefixToRemove = sourcePrefix;
+            return ParserResult::ok( ParseResultType::Matched );
+        };
 
         auto cli
             = ExeName( config.processName )
@@ -198,6 +202,9 @@ namespace Catch {
             | Opt( setAttachment, "attachmentPath" )
                 ["--attachment"]
                 ( "specify an attachment for the test run results" )
+            | Opt( setSourcePrefix, "sourcePrefix" )
+                ["--source-prefix"]
+                ( "specify a common source root to remove from reported results" )
             | Opt( setTestOrder, "decl|lex|rand" )
                 ["--order"]
                 ( "test case order (defaults to decl)" )

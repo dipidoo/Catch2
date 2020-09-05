@@ -32,7 +32,7 @@ namespace Catch {
         bool hasMessages() const;
         std::string constructFullName() const;
         std::string constructErrorMessage() const;
-        std::string constructStackMessage() const;
+        std::string constructStackMessage(std::string const& sourcePrefix) const;
         std::string constructDuration() const;
     };
 

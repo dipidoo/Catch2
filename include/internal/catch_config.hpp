@@ -61,6 +61,7 @@ namespace Catch {
         std::string name;
         std::string processName;
         std::string attachment;
+        std::string sourcePathPrefixToRemove;
 #ifndef CATCH_CONFIG_DEFAULT_REPORTER
 #define CATCH_CONFIG_DEFAULT_REPORTER "console"
 #endif
@@ -114,6 +115,7 @@ namespace Catch {
         bool showInvisibles() const override;
         Verbosity verbosity() const override;
         std::string attachment() const override;
+        std::string sourcePrefix() const override;
         bool benchmarkNoAnalysis() const override;
         int benchmarkSamples() const override;
         double benchmarkConfidenceInterval() const override;
