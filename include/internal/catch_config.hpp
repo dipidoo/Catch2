@@ -72,7 +72,6 @@ namespace Catch {
         std::vector<std::string> sectionsToRun;
     };
 
-
     class Config : public IConfig {
     public:
 
@@ -121,9 +120,16 @@ namespace Catch {
         double benchmarkConfidenceInterval() const override;
         unsigned int benchmarkResamples() const override;
         std::chrono::milliseconds benchmarkWarmupTime() const override;
+        void setFatalConditionPreReportCallbacks(
+            std::vector<FatalConditionCallbackFunction> callbacks )
+            override;
+        std::vector<FatalConditionCallbackFunction>
+            getFatalConditionPreReportCallbacks() const override;
 
     private:
 
+        std::vector<FatalConditionCallbackFunction>
+            m_fatalConditionPreReportCallbacks;
         IStream const* openStream();
         ConfigData m_data;
 

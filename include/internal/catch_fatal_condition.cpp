@@ -9,6 +9,7 @@
 
 #include "catch_fatal_condition.h"
 
+#include "catch_config.hpp"
 #include "catch_context.h"
 #include "catch_interfaces_capture.h"
 
@@ -23,6 +24,15 @@ namespace {
     // Report the error condition
     void reportFatal( char const * const message ) {
         Catch::getCurrentContext().getResultCapture()->handleFatalErrorCondition( message );
+    }
+    // Invoke any pre-report handlers registered with the config
+    void callPreReportHandlers( int exceptionCode ) {
+        for ( auto const& callback :
+              Catch::getCurrentContext()
+                  .getConfig()
+                  ->getFatalConditionPreReportCallbacks() ) {
+            callback( exceptionCode );
+        }
     }
 }
 
@@ -44,11 +54,14 @@ namespace Catch {
     };
 
     LONG CALLBACK FatalConditionHandler::handleVectoredException(PEXCEPTION_POINTERS ExceptionInfo) {
+        callPreReportHandlers( ExceptionInfo->ExceptionRecord->ExceptionCode );
+
         for (auto const& def : signalDefs) {
             if (ExceptionInfo->ExceptionRecord->ExceptionCode == def.id) {
                 reportFatal(def.name);
             }
         }
+
         // If its not an exception we care about, pass it along.
         // This stops us from eating debugger breaks etc.
         return EXCEPTION_CONTINUE_SEARCH;
@@ -110,6 +123,8 @@ namespace Catch {
 
 
     void FatalConditionHandler::handleSignal( int sig ) {
+        callPreReportHandlers( ExceptionInfo->ExceptionRecord->ExceptionCode );
+
         char const * name = "<unknown signal>";
         for (auto const& def : signalDefs) {
             if (sig == def.id) {

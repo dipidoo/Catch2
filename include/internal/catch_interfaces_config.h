@@ -54,6 +54,7 @@ namespace Catch {
     }; };
     
     class TestSpec;
+    typedef int ( *FatalConditionCallbackFunction )( int );
 
     struct IConfig : NonCopyable {
 
@@ -85,6 +86,10 @@ namespace Catch {
         virtual double benchmarkConfidenceInterval() const = 0;
         virtual unsigned int benchmarkResamples() const = 0;
         virtual std::chrono::milliseconds benchmarkWarmupTime() const = 0;
+        virtual void setFatalConditionPreReportCallbacks(
+            std::vector<FatalConditionCallbackFunction> callbacks ) = 0;
+        virtual std::vector<FatalConditionCallbackFunction>
+            getFatalConditionPreReportCallbacks() const = 0;
     };
 
     using IConfigPtr = std::shared_ptr<IConfig const>;
