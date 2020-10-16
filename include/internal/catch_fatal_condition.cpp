@@ -123,7 +123,7 @@ namespace Catch {
 
 
     void FatalConditionHandler::handleSignal( int sig ) {
-        callPreReportHandlers( ExceptionInfo->ExceptionRecord->ExceptionCode );
+        callPreReportHandlers( sig );
 
         char const * name = "<unknown signal>";
         for (auto const& def : signalDefs) {
