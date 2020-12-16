@@ -48,6 +48,8 @@ namespace Catch {
 
     struct ReporterPreferences {
         bool shouldRedirectStdOut = false;
+        std::FILE* stdoutRedirect = nullptr;
+        std::FILE* stderrRedirect = nullptr;
         bool shouldReportAllAssertions = false;
     };
 

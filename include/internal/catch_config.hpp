@@ -79,7 +79,7 @@ namespace Catch {
         Config( ConfigData const& data );
         virtual ~Config() = default;
 
-        std::string const& getFilename() const;
+        std::string getOutputFilename() const;
 
         bool listTests() const;
         bool listTestNamesOnly() const;
@@ -100,6 +100,7 @@ namespace Catch {
         // IConfig interface
         bool allowThrows() const override;
         std::ostream& stream() const override;
+        void resetStream() override;
         std::string name() const override;
         bool includeSuccessfulResults() const override;
         bool warnAboutMissingAssertions() const override;

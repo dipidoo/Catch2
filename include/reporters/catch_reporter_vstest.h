@@ -14,6 +14,7 @@ namespace Catch {
 
     class StreamingReporterUnwindContext {
     public:
+        StreamingReporterUnwindContext();
         std::vector<SectionInfo> allSectionInfo;
         std::vector<SectionStats> allSectionStats;
         std::vector<AssertionStats> allTerminatedAssertions;
@@ -33,6 +34,7 @@ namespace Catch {
         void clear();
         bool hasFailures() const;
         bool hasMessages() const;
+        bool hasPendingErrors() const;
         std::string constructFullName() const;
         std::string constructErrorMessage() const;
         std::string constructStackMessage(std::string const& sourcePrefix) const;

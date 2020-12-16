@@ -395,7 +395,9 @@ namespace Catch {
                 invokeActiveTestCase();
 #else
                 OutputRedirect r( testCaseSection.stdOut,
-                                  testCaseSection.stdErr );
+                                  testCaseSection.stdErr,
+                    m_reporter->getPreferences().stdoutRedirect,
+                    m_reporter->getPreferences().stderrRedirect);
                 m_activeRedirect = &r;
                 timer.start();
                 invokeActiveTestCase();

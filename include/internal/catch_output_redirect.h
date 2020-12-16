@@ -98,7 +98,8 @@ namespace Catch {
 
         void flush();
 
-        OutputRedirect(std::string& stdout_dest, std::string& stderr_dest);
+        OutputRedirect(std::string& stdout_dest, std::string& stderr_dest
+        , std::FILE* stdout_file_override = nullptr, std::FILE* stderr_file_override = nullptr);
         ~OutputRedirect();
 
     private:
@@ -106,6 +107,8 @@ namespace Catch {
         int m_originalStderr = -1;
         TempFile m_stdoutFile;
         TempFile m_stderrFile;
+        std::FILE* m_stdoutFileOverride;
+        std::FILE* m_stderrFileOverride;
         std::string& m_stdoutDest;
         std::string& m_stderrDest;
     };

@@ -99,23 +99,32 @@ namespace Catch {
         return m_file;
     }
 
-    std::string TempFile::getContents() {
+    std::string getFileContents(FILE* input_file) {
         std::stringstream sstr;
         char buffer[100] = {};
-        std::rewind(m_file);
-        while (std::fgets(buffer, sizeof(buffer), m_file)) {
+        std::rewind( input_file );
+        while ( std::fgets( buffer, sizeof( buffer ), input_file ) ) {
             sstr << buffer;
         }
         return sstr.str();
     }
+    std::string TempFile::getContents() { return getFileContents( m_file ); }
 
-    OutputRedirect::OutputRedirect(std::string& stdout_dest, std::string& stderr_dest) :
+    OutputRedirect::OutputRedirect(std::string& stdout_dest, std::string& stderr_dest, std::FILE* stdout_override_file, std::FILE* stderr_override_file) :
         m_originalStdout(dup(1)),
         m_originalStderr(dup(2)),
         m_stdoutDest(stdout_dest),
-        m_stderrDest(stderr_dest) {
-        dup2(fileno(m_stdoutFile.getFile()), 1);
-        dup2(fileno(m_stderrFile.getFile()), 2);
+        m_stderrDest(stderr_dest),
+        m_stdoutFileOverride(stdout_override_file),
+        m_stderrFileOverride(stderr_override_file) {
+            auto outFile = m_stdoutFileOverride != nullptr
+                               ? m_stdoutFileOverride
+                               : m_stdoutFile.getFile();
+            auto errFile = m_stderrFileOverride != nullptr
+                               ? m_stderrFileOverride
+                               : m_stderrFile.getFile();
+        dup2(fileno(outFile), 1);
+        dup2(fileno(errFile), 2);
     }
 
     OutputRedirect::~OutputRedirect() { 
@@ -134,8 +143,13 @@ namespace Catch {
         dup2( m_originalStdout, 1 );
         dup2( m_originalStderr, 2 );
 
-        m_stdoutDest += m_stdoutFile.getContents();
-        m_stderrDest += m_stderrFile.getContents();
+                    auto outFile = m_stdoutFileOverride != nullptr ? m_stdoutFileOverride
+                                                       : m_stdoutFile.getFile();
+        auto errFile = m_stderrFileOverride != nullptr ? m_stderrFileOverride
+                                                       : m_stderrFile.getFile();
+
+        m_stdoutDest += getFileContents( outFile );
+        m_stderrDest += getFileContents( errFile );
     }
 
 #endif // CATCH_CONFIG_NEW_CAPTURE

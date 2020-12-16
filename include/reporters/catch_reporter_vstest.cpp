@@ -121,6 +121,8 @@ namespace Catch {
         }
     } // namespace
 
+    StreamingReporterUnwindContext::StreamingReporterUnwindContext(): hasFatalError(false) {}
+
     void StreamingReporterUnwindContext::onFatalErrorCondition(
         Catch::StringRef) {
         hasFatalError = true;
@@ -151,6 +153,7 @@ namespace Catch {
         allSectionStats.clear();
         allTerminatedAssertions.clear();
         allExpandedAssertionStatements.clear();
+        hasFatalError = false;
     }
     bool StreamingReporterUnwindContext::hasFailures() const {
         if ( hasFatalError ) {
@@ -162,6 +165,9 @@ namespace Catch {
             }
         }
         return false;
+    }
+    bool StreamingReporterUnwindContext::hasPendingErrors() const {
+        return hasFatalError || !allTerminatedAssertions.empty();
     }
     bool StreamingReporterUnwindContext::hasMessages() const {
         return !stdOut.empty() || !stdErr.empty();
@@ -260,9 +266,15 @@ namespace Catch {
         StreamingReporterBase( _config ),
         m_xml( _config.stream() ),
         m_defaultTestListId{ createGuid() } {
-        m_reporterPrefs.shouldRedirectStdOut = true;
-        m_reporterPrefs.shouldReportAllAssertions = true;
         m_config = _config.fullConfig();
+        m_reporterPrefs.shouldRedirectStdOut = true;
+        fopen_s( &(m_reporterPrefs.stdoutRedirect), 
+            (m_config->getOutputFilename() + ".out").c_str(),
+            "w+" );
+        fopen_s( &(m_reporterPrefs.stderrRedirect),
+            (m_config->getOutputFilename() + ".err").c_str(),
+            "w+" );
+        m_reporterPrefs.shouldReportAllAssertions = true;
     }
 
     // StreamingReporterBase implementation
@@ -326,7 +338,7 @@ namespace Catch {
     }
 
     void VstestReporter::testRunEnded( TestRunStats const& testRunStats ) {
-        if ( !m_currentUnwindContext.allTerminatedAssertions.empty() ) {
+        if ( m_currentUnwindContext.hasPendingErrors() ) {
             // The test run ended unexpectedly (without matched section
             // starts and section ends), which usually happens because of a
             // segfault or similar in a test. Flush the last entry so we get

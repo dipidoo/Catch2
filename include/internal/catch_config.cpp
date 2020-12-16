@@ -36,7 +36,7 @@ namespace Catch {
         m_testSpec = parser.testSpec();
     }
 
-    std::string const& Config::getFilename() const {
+    std::string Config::getOutputFilename() const {
         return m_data.outputFilename ;
     }
 
@@ -90,6 +90,11 @@ namespace Catch {
 
     IStream const* Config::openStream() {
         return Catch::makeStream(m_data.outputFilename);
+    }
+
+    void Config::resetStream() {
+        m_stream = nullptr;
+        m_stream.reset( openStream() );
     }
 
 } // end namespace Catch
