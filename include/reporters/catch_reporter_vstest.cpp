@@ -121,8 +121,20 @@ namespace Catch {
         }
     } // namespace
 
+    void StreamingReporterUnwindContext::onFatalErrorCondition(
+        Catch::StringRef) {
+        hasFatalError = true;
+    }
+
     void StreamingReporterUnwindContext::addAssertion(
         AssertionStats const& assertionStats ) {
+        if ( hasFatalError ) {
+            auto info = assertionStats.assertionResult.getSourceInfo();
+            fatalAssertionSource = info.file;
+            fatalAssertionSource += ":";
+            fatalAssertionSource += std::to_string(info.line);
+            return;
+        }
         allTerminatedAssertions.push_back( assertionStats );
         allExpandedAssertionStatements.push_back(
             assertionStats.assertionResult.getExpandedExpression() );
@@ -141,6 +153,9 @@ namespace Catch {
         allExpandedAssertionStatements.clear();
     }
     bool StreamingReporterUnwindContext::hasFailures() const {
+        if ( hasFatalError ) {
+            return true;
+        }
         for ( auto const& assertion : allTerminatedAssertions ) {
             if ( !assertion.assertionResult.isOk() ) {
                 return true;
@@ -182,6 +197,11 @@ namespace Catch {
             } else if ( !result.isOk() ) {
                 errorMessageStream << "Failed: " << result.getMessage() << '\n';
             }
+        }
+        if ( hasFatalError ) {
+            errorMessageStream << "Fatal error at "
+                << fatalAssertionSource
+                << '\n';
         }
         return errorMessageStream.str();
     }
@@ -249,6 +269,10 @@ namespace Catch {
 
     void VstestReporter::noMatchingTestCases( std::string const& s ) {
         StreamingReporterBase::noMatchingTestCases( s );
+    }
+
+    void VstestReporter::fatalErrorEncountered( Catch::StringRef signalName ) {
+        m_currentUnwindContext.onFatalErrorCondition( signalName );
     }
 
     void VstestReporter::testRunStarting( TestRunInfo const& testInfo ) {

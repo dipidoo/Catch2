@@ -79,6 +79,14 @@ namespace Catch {
     double Config::benchmarkConfidenceInterval() const            { return m_data.benchmarkConfidenceInterval; }
     unsigned int Config::benchmarkResamples() const               { return m_data.benchmarkResamples; }
     std::chrono::milliseconds Config::benchmarkWarmupTime() const { return std::chrono::milliseconds(m_data.benchmarkWarmupTime); }
+    void Config::setFatalConditionPreReportCallbacks(
+        std::vector<FatalConditionCallbackFunction> callbacks) {
+        m_fatalConditionPreReportCallbacks = std::move( callbacks );
+    }
+    std::vector<FatalConditionCallbackFunction>
+        Config::getFatalConditionPreReportCallbacks() const {
+        return m_fatalConditionPreReportCallbacks;
+    }
 
     IStream const* Config::openStream() {
         return Catch::makeStream(m_data.outputFilename);

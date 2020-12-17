@@ -22,10 +22,13 @@ namespace Catch {
         std::string endTimestamp;
         std::string stdOut;
         std::string stdErr;
+        bool hasFatalError;
+        std::string fatalAssertionSource;
         unsigned long long elapsedNanoseconds;
 
     public:
         void addAssertion( AssertionStats const& assertionStats );
+        void onFatalErrorCondition( Catch::StringRef signalName );
         bool unwindIsComplete() const;
         void clear();
         bool hasFailures() const;
@@ -64,6 +67,7 @@ namespace Catch {
         std::vector<std::string> m_currentTestCaseTags;
         std::vector<VstestEntry> m_testEntries;
         StreamingReporterUnwindContext m_currentUnwindContext;
+        bool m_handlingFatalSignal;
 
     public:
         VstestReporter( ReporterConfig const& _config );
@@ -106,6 +110,8 @@ namespace Catch {
 
     public: // StreamingReporterBase
         void noMatchingTestCases( std::string const& s ) override;
+
+        void fatalErrorEncountered( Catch::StringRef signalName ) override;
 
         void testRunStarting( TestRunInfo const& testInfo ) override;
 
