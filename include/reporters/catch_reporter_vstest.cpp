@@ -11,10 +11,10 @@
 #include "catch_reporter_bases.hpp"
 
 #ifdef CATCH_PLATFORM_WINDOWS
-#define NOMINMAX
-#include <Rpc.h>
+#    define NOMINMAX
+#    include <Rpc.h>
 #else
-#include <uuid/uuid.h>
+#    include <uuid/uuid.h>
 #endif
 
 #include <algorithm>
@@ -121,10 +121,11 @@ namespace Catch {
         }
     } // namespace
 
-    StreamingReporterUnwindContext::StreamingReporterUnwindContext(): hasFatalError(false) {}
+    StreamingReporterUnwindContext::StreamingReporterUnwindContext():
+        hasFatalError( false ) {}
 
-    void StreamingReporterUnwindContext::onFatalErrorCondition(
-        Catch::StringRef) {
+    void
+    StreamingReporterUnwindContext::onFatalErrorCondition( Catch::StringRef ) {
         hasFatalError = true;
     }
 
@@ -134,7 +135,7 @@ namespace Catch {
             auto info = assertionStats.assertionResult.getSourceInfo();
             fatalAssertionSource = info.file;
             fatalAssertionSource += ":";
-            fatalAssertionSource += std::to_string(info.line);
+            fatalAssertionSource += std::to_string( info.line );
             return;
         }
         allTerminatedAssertions.push_back( assertionStats );
@@ -205,9 +206,8 @@ namespace Catch {
             }
         }
         if ( hasFatalError ) {
-            errorMessageStream << "Fatal error at "
-                << fatalAssertionSource
-                << '\n';
+            errorMessageStream << "Fatal error at " << fatalAssertionSource
+                               << '\n';
         }
         return errorMessageStream.str();
     }
@@ -217,15 +217,17 @@ namespace Catch {
     //  - A provided prefix (like 'C:\source\project') will be omitted
     //  - Backslashes ('\') will be converted to forward slashes ('/')
     std::string StreamingReporterUnwindContext::constructStackMessage(
-        std::string const& sourcePrefix) const {
+        std::string const& sourcePrefix ) const {
         ReusableStringStream stackStream;
         for ( auto const& assertionInfo : allTerminatedAssertions ) {
+            if ( assertionInfo.assertionResult.isOk() )
+                continue;
             auto&& sourceInfo = assertionInfo.assertionResult.getSourceInfo();
             auto index = 0;
             if ( sourcePrefix.compare( 0,
-                                        sourcePrefix.length(),
-                                        sourceInfo.file,
-                                        sourcePrefix.length() ) == 0 ) {
+                                       sourcePrefix.length(),
+                                       sourceInfo.file,
+                                       sourcePrefix.length() ) == 0 ) {
                 index = (int)sourcePrefix.length();
             }
             stackStream << "at Catch.Module.Method() in ";
@@ -264,17 +266,22 @@ namespace Catch {
 
     VstestReporter::VstestReporter( ReporterConfig const& _config ):
         StreamingReporterBase( _config ),
-        m_xml( _config.stream() ),
+        m_xml( std::make_unique<XmlWriter>( _config.stream() ) ),
         m_defaultTestListId{ createGuid() } {
         m_config = _config.fullConfig();
         m_reporterPrefs.shouldRedirectStdOut = true;
-        fopen_s( &(m_reporterPrefs.stdoutRedirect), 
-            (m_config->getOutputFilename() + ".out").c_str(),
-            "w+" );
-        fopen_s( &(m_reporterPrefs.stderrRedirect),
-            (m_config->getOutputFilename() + ".err").c_str(),
-            "w+" );
         m_reporterPrefs.shouldReportAllAssertions = true;
+
+        // This reporter will maintain temporary files for stdout and stderr
+        // output, to be usable in the event that the test process
+        // unceremoniously exits in a condition where graceful termination can't
+        // clean up.
+        fopen_s( &( m_reporterPrefs.stdoutRedirect ),
+                 ( m_config->getOutputFilename() + ".out" ).c_str(),
+                 "w+" );
+        fopen_s( &( m_reporterPrefs.stderrRedirect ),
+                 ( m_config->getOutputFilename() + ".err" ).c_str(),
+                 "w+" );
     }
 
     // StreamingReporterBase implementation
@@ -303,11 +310,13 @@ namespace Catch {
 
     void VstestReporter::sectionStarting( SectionInfo const& sectionInfo ) {
         StreamingReporterBase::sectionStarting( sectionInfo );
-        if ( m_currentUnwindContext.allSectionInfo.empty() ) {
+        auto startOfNewUnwind = m_currentUnwindContext.allSectionInfo.empty();
+        m_currentUnwindContext.allSectionInfo.push_back( sectionInfo );
+        if ( startOfNewUnwind ) {
+            emitTrx( TrxEmissionType::Incremental );
             m_timer.start();
             m_currentUnwindContext.startTimestamp = currentTimestamp();
         }
-        m_currentUnwindContext.allSectionInfo.push_back( sectionInfo );
     }
 
     void VstestReporter::assertionStarting( AssertionInfo const& ) {}
@@ -347,22 +356,22 @@ namespace Catch {
                 "<Test aborted unexpectedly; output may be incomplete>\n";
             flushCurrentUnwindContext();
         }
-        emitTrx();
+        emitTrx( TrxEmissionType::Final );
         StreamingReporterBase::testRunEnded( testRunStats );
     }
 
     // .trx emission
-    void VstestReporter::startTestRunElement() {
-        m_xml.startElement( "TestRun" );
-        m_xml.writeAttribute( "id", createGuid() );
-        m_xml.writeAttribute( "name", m_runName );
-        m_xml.writeAttribute( "runUser", "Catch2VstestReporter" );
-        m_xml.writeAttribute(
+    void VstestReporter::startTestRunElement( TrxEmissionType ) {
+        m_xml->startElement( "TestRun" );
+        m_xml->writeAttribute( "id", createGuid() );
+        m_xml->writeAttribute( "name", m_runName );
+        m_xml->writeAttribute( "runUser", "Catch2VstestReporter" );
+        m_xml->writeAttribute(
             "xmlns",
             "http://microsoft.com/schemas/VisualStudio/TeamTest/2010" );
     }
 
-    void VstestReporter::writeTimesElement() {
+    void VstestReporter::writeTimesElement( TrxEmissionType ) {
         auto now = currentTimestamp();
         auto startTime = now;
         auto endTime = now;
@@ -376,7 +385,7 @@ namespace Catch {
             endTime = lastUnwind.endTimestamp;
         }
 
-        m_xml.scopedElement( "Times" )
+        m_xml->scopedElement( "Times" )
             .writeAttribute( "creation", startTime )
             .writeAttribute( "queuing", startTime )
             .writeAttribute( "start", startTime )
@@ -384,27 +393,37 @@ namespace Catch {
     }
 
     void VstestReporter::writeUnwindOutput(
-        StreamingReporterUnwindContext const& unwindContext ) {
-        if ( unwindContext.hasMessages() || unwindContext.hasFailures() ) {
-            auto outputElement = m_xml.scopedElement( "Output" );
-            if ( !unwindContext.stdOut.empty() ) {
-                m_xml.scopedElement( "StdOut" )
+        StreamingReporterUnwindContext const& unwindContext,
+        TrxEmissionType emissionType ) {
+        auto isIncremental{ emissionType == TrxEmissionType::Incremental };
+
+        if ( unwindContext.hasMessages() || unwindContext.hasFailures() ||
+             isIncremental ) {
+            auto outputElement = m_xml->scopedElement( "Output" );
+            if ( !unwindContext.stdOut.empty() || isIncremental ) {
+                m_xml->scopedElement( "StdOut" )
                     .writeText( unwindContext.stdOut, XmlFormatting::Newline );
             }
-            if ( !unwindContext.stdErr.empty() ) {
-                m_xml.scopedElement( "StdErr" )
+            if ( !unwindContext.stdErr.empty() || isIncremental ) {
+                m_xml->scopedElement( "StdErr" )
                     .writeText( unwindContext.stdErr, XmlFormatting::Newline );
             }
-            auto errorMessage = unwindContext.constructErrorMessage();
+            auto errorMessage =
+                isIncremental
+                    ? "Execution terminated abnormally before this test could "
+                      "finish execution. Check standard output and standard "
+                      "error content for more details."
+                    : unwindContext.constructErrorMessage();
             auto stackMessage =
                 unwindContext.constructStackMessage( m_config->sourcePrefix() );
             if ( !errorMessage.empty() || !stackMessage.empty() ) {
-                auto errorInfoElement = m_xml.scopedElement( "ErrorInfo" );
+                auto errorInfoElement = m_xml->scopedElement( "ErrorInfo" );
                 if ( !errorMessage.empty() ) {
-                    m_xml.scopedElement( "Message" ).writeText( errorMessage, XmlFormatting::Newline );
+                    m_xml->scopedElement( "Message" )
+                        .writeText( errorMessage, XmlFormatting::Newline );
                 }
                 if ( !stackMessage.empty() ) {
-                    m_xml.scopedElement( "StackTrace" )
+                    m_xml->scopedElement( "StackTrace" )
                         .writeText( stackMessage, XmlFormatting::Newline );
                 }
             }
@@ -418,13 +437,13 @@ namespace Catch {
         constexpr auto g_vsTestType = "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b";
         constexpr auto g_computerName = "localhost";
 
-        m_xml.startElement( "UnitTestResult" );
-        m_xml.writeAttribute( "executionId", executionId );
-        m_xml.writeAttribute( "testId", testId );
-        m_xml.writeAttribute( "testName", name );
-        m_xml.writeAttribute( "computerName", g_computerName );
-        m_xml.writeAttribute( "testType", g_vsTestType );
-        m_xml.writeAttribute( "testListId", m_defaultTestListId );
+        m_xml->startElement( "UnitTestResult" );
+        m_xml->writeAttribute( "executionId", executionId );
+        m_xml->writeAttribute( "testId", testId );
+        m_xml->writeAttribute( "testName", name );
+        m_xml->writeAttribute( "computerName", g_computerName );
+        m_xml->writeAttribute( "testType", g_vsTestType );
+        m_xml->writeAttribute( "testListId", m_defaultTestListId );
     }
 
     void VstestReporter::writeInnerResult(
@@ -434,98 +453,125 @@ namespace Catch {
         name = name.empty() ? "Unknown test" : name;
 
         startUnitTestResultElement( createGuid(), createGuid(), name );
-        m_xml.writeAttribute( "parentExecutionId", parentExecutionId );
-        m_xml.writeAttribute( "resultType", "DataDrivenDataRow" );
-        m_xml.writeAttribute( "startTime", unwindContext.startTimestamp );
-        m_xml.writeAttribute( "endTime", unwindContext.endTimestamp );
-        m_xml.writeAttribute( "duration", unwindContext.constructDuration() );
-        m_xml.writeAttribute(
+        m_xml->writeAttribute( "parentExecutionId", parentExecutionId );
+        m_xml->writeAttribute( "resultType", "DataDrivenDataRow" );
+        m_xml->writeAttribute( "startTime", unwindContext.startTimestamp );
+        m_xml->writeAttribute( "endTime", unwindContext.endTimestamp );
+        m_xml->writeAttribute( "duration", unwindContext.constructDuration() );
+        m_xml->writeAttribute(
             "outcome", unwindContext.hasFailures() ? "Failed" : "Passed" );
-        writeUnwindOutput( unwindContext );
-        m_xml.endElement(); // UnitTestResult
+        writeUnwindOutput( unwindContext, TrxEmissionType::Final );
+        m_xml->endElement(); // UnitTestResult
     }
 
-    void VstestReporter::writeToplevelResult( VstestEntry const& testEntry ) {
+    void VstestReporter::writeToplevelResult( VstestEntry const& testEntry,
+                                              TrxEmissionType emissionType ) {
+        auto isIncremental{ emissionType == TrxEmissionType::Incremental };
+
         startUnitTestResultElement(
             testEntry.executionId, testEntry.testId, testEntry.name );
 
         auto&& firstUnwind = testEntry.unwindContexts[0];
         auto&& lastUnwind =
             testEntry.unwindContexts[testEntry.unwindContexts.size() - 1];
-        m_xml.writeAttribute( "startTime", firstUnwind.startTimestamp );
-        m_xml.writeAttribute( "endTime", lastUnwind.endTimestamp );
-        m_xml.writeAttribute( "duration", testEntry.constructDuration() );
-        m_xml.writeAttribute( "outcome",
-                              testEntry.hasFailures() ? "Failed" : "Passed" );
+        m_xml->writeAttribute( "startTime", firstUnwind.startTimestamp );
+        m_xml->writeAttribute( "endTime", lastUnwind.endTimestamp );
+        m_xml->writeAttribute( "duration", testEntry.constructDuration() );
+        m_xml->writeAttribute(
+            "outcome",
+            testEntry.hasFailures() || isIncremental ? "Failed" : "Passed" );
 
         if ( testEntry.unwindContexts.size() == 1 ) {
             // This is a flat test (no sections/sub-results) and gets its
             // details in the top element from its single unwind
-            writeUnwindOutput( testEntry.unwindContexts[0] );
+            writeUnwindOutput( testEntry.unwindContexts[0], emissionType );
         } else {
-            m_xml.writeAttribute( "resultType", "DataDrivenTest" );
+            m_xml->writeAttribute( "resultType", "DataDrivenTest" );
 
-            auto innerResultsElement = m_xml.scopedElement( "InnerResults" );
+            auto innerResultsElement = m_xml->scopedElement( "InnerResults" );
             for ( auto const& unwindContext : testEntry.unwindContexts ) {
                 writeInnerResult( unwindContext, testEntry.executionId );
             }
         }
 
-        m_xml.endElement(); // UnitTestResult
+        m_xml->endElement(); // UnitTestResult
     }
 
-    void VstestReporter::writeResults() {
-        auto resultsElement = m_xml.scopedElement( "Results" );
+    void VstestReporter::writeResults( TrxEmissionType emissionType ) {
+        auto resultsElement = m_xml->scopedElement( "Results" );
         for ( auto const& testEntry : m_testEntries ) {
-            writeToplevelResult( testEntry );
+            writeToplevelResult( testEntry, TrxEmissionType::Final );
+        }
+        if ( emissionType == TrxEmissionType::Incremental ) {
+            m_incrementalEntry.unwindContexts.clear();
+            m_incrementalEntry.unwindContexts.push_back(
+                m_currentUnwindContext );
+            m_incrementalEntry.name =
+                m_currentUnwindContext.constructFullName();
+            writeToplevelResult( m_incrementalEntry,
+                                 TrxEmissionType::Incremental );
         }
     }
 
-    void VstestReporter::writeTestDefinitions() {
-        auto testDefinitionsElement = m_xml.scopedElement( "TestDefinitions" );
-        for ( auto const& testEntry : m_testEntries ) {
-            auto unitTestElement = m_xml.scopedElement( "UnitTest" );
-            m_xml.writeAttribute( "name", testEntry.name );
-            m_xml.writeAttribute( "storage", m_runName );
-            m_xml.writeAttribute( "id", testEntry.testId );
-            if ( !testEntry.tags.empty() ) {
+    void VstestReporter::writeTestDefinitions( TrxEmissionType emissionType ) {
+        auto writeDefinition = [&]( const VstestEntry& entry ) {
+            auto unitTestElement = m_xml->scopedElement( "UnitTest" );
+            m_xml->writeAttribute( "name", entry.name );
+            m_xml->writeAttribute( "storage", m_runName );
+            m_xml->writeAttribute( "id", entry.testId );
+            if ( !entry.tags.empty() ) {
                 auto testCategoriesElement =
-                    m_xml.scopedElement( "TestCategory" );
-                for ( auto const& tag : testEntry.tags ) {
-                    m_xml.scopedElement( "TestCategoryItem" )
+                    m_xml->scopedElement( "TestCategory" );
+                for ( auto const& tag : entry.tags ) {
+                    m_xml->scopedElement( "TestCategoryItem" )
                         .writeAttribute( "TestCategory", tag );
                 }
             }
-            m_xml.scopedElement( "Execution" )
-                .writeAttribute( "id", testEntry.executionId );
-            m_xml.scopedElement( "TestMethod" )
+            m_xml->scopedElement( "Execution" )
+                .writeAttribute( "id", entry.executionId );
+            m_xml->scopedElement( "TestMethod" )
                 .writeAttribute( "codeBase", m_runName )
                 .writeAttribute( "adapterTypeName",
                                  "executor://mstestadapter/v2" )
                 .writeAttribute( "className", "Catch2.Test" )
-                .writeAttribute( "name", testEntry.name );
-        }
-    }
+                .writeAttribute( "name", entry.name );
+        };
 
-    void VstestReporter::writeTestEntries() {
-        auto testEntriesElement = m_xml.scopedElement( "TestEntries" );
+        auto testDefinitionsElement = m_xml->scopedElement( "TestDefinitions" );
         for ( auto const& testEntry : m_testEntries ) {
-            m_xml.scopedElement( "TestEntry" )
-                .writeAttribute( "testId", testEntry.testId )
-                .writeAttribute( "executionId", testEntry.executionId )
-                .writeAttribute( "testListId", m_defaultTestListId );
+            writeDefinition( testEntry );
+        }
+        if ( emissionType == TrxEmissionType::Incremental ) {
+            writeDefinition( m_incrementalEntry );
         }
     }
 
-    void VstestReporter::writeTestLists() {
-        auto testListsElement = m_xml.scopedElement( "TestLists" );
-        m_xml.scopedElement( "TestList" )
+    void VstestReporter::writeTestEntries( TrxEmissionType emissionType ) {
+        auto writeEntry = [&]( const VstestEntry& entry ) {
+            m_xml->scopedElement( "TestEntry" )
+                .writeAttribute( "testId", entry.testId )
+                .writeAttribute( "executionId", entry.executionId )
+                .writeAttribute( "testListId", m_defaultTestListId );
+        };
+
+        auto testEntriesElement = m_xml->scopedElement( "TestEntries" );
+        for ( auto const& testEntry : m_testEntries ) {
+            writeEntry( testEntry );
+        }
+        if ( emissionType == TrxEmissionType::Incremental ) {
+            writeEntry( m_incrementalEntry );
+        }
+    }
+
+    void VstestReporter::writeTestLists( TrxEmissionType emissionType ) {
+        auto testListsElement = m_xml->scopedElement( "TestLists" );
+        m_xml->scopedElement( "TestList" )
             .writeAttribute( "name", "Default test list for Catch2" )
             .writeAttribute( "id", m_defaultTestListId );
     }
 
-    void VstestReporter::writeSummaryElement() {
-        auto resultSummaryElement = m_xml.scopedElement( "ResultSummary" );
+    void VstestReporter::writeSummaryElement( TrxEmissionType emissionType ) {
+        auto resultSummaryElement = m_xml->scopedElement( "ResultSummary" );
 
         auto hasFailures = false;
         for ( auto const& testEntry : m_testEntries ) {
@@ -535,24 +581,38 @@ namespace Catch {
             }
         }
         resultSummaryElement.writeAttribute(
-            "outcome", hasFailures ? "Failed" : "Passed" );
+            "outcome",
+            hasFailures || emissionType == TrxEmissionType::Incremental
+                ? "Failed"
+                : "Passed" );
 
         if ( !m_config->attachment().empty() ) {
-            auto resultFilesElement = m_xml.scopedElement( "ResultFiles" );
-            m_xml.scopedElement( "ResultFile" )
+            auto resultFilesElement = m_xml->scopedElement( "ResultFiles" );
+            m_xml->scopedElement( "ResultFile" )
                 .writeAttribute( "path", m_config->attachment() );
         }
     }
 
-    void VstestReporter::emitTrx() {
-        startTestRunElement();
-        writeTimesElement();
-        writeResults();
-        writeTestDefinitions();
-        writeTestEntries();
-        writeTestLists();
-        writeSummaryElement();
-        m_xml.endElement(); // TestRun
+    void VstestReporter::emitTrx( TrxEmissionType emissionType ) {
+        std::const_pointer_cast<IConfig>( m_config )->resetStream();
+        m_xml.reset( new XmlWriter( m_config->stream() ) );
+        freopen_s( &( m_reporterPrefs.stdoutRedirect ),
+                   ( m_config->getOutputFilename() + ".out" ).c_str(),
+                   "w+",
+                   m_reporterPrefs.stdoutRedirect );
+        freopen_s( &( m_reporterPrefs.stderrRedirect ),
+                   ( m_config->getOutputFilename() + ".err" ).c_str(),
+                   "w+",
+                   m_reporterPrefs.stderrRedirect );
+
+        startTestRunElement( emissionType );
+        writeTimesElement( emissionType );
+        writeResults( emissionType );
+        writeTestDefinitions( emissionType );
+        writeTestEntries( emissionType );
+        writeTestLists( emissionType );
+        writeSummaryElement( emissionType );
+        m_xml->endElement(); // TestRun
     }
 
     void VstestReporter::flushCurrentUnwindContext(

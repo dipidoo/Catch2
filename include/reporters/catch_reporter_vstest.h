@@ -41,9 +41,9 @@ namespace Catch {
         std::string constructDuration() const;
     };
 
-        class VstestEntry {
+    class VstestEntry {
     public:
-            VstestEntry( std::string name );
+        VstestEntry( std::string name );
             
     public:
         std::string name;
@@ -61,7 +61,12 @@ namespace Catch {
 
     class VstestReporter : public StreamingReporterBase<VstestReporter> {
     private:
-        XmlWriter m_xml;
+        enum class TrxEmissionType {
+            Incremental,
+            Final,
+        };
+    private:
+        std::unique_ptr<XmlWriter> m_xml;
         Timer m_timer;
         IConfigPtr m_config;
         std::string m_runName;
@@ -69,6 +74,7 @@ namespace Catch {
         std::vector<std::string> m_currentTestCaseTags;
         std::vector<VstestEntry> m_testEntries;
         StreamingReporterUnwindContext m_currentUnwindContext;
+        VstestEntry m_incrementalEntry{ std::string{} };
         bool m_handlingFatalSignal;
 
     public:
@@ -81,30 +87,31 @@ namespace Catch {
         }
 
     private: // trx emission methods
-        void startTestRunElement();
+        void startTestRunElement( TrxEmissionType emissionType );
 
-        void writeTimesElement();
+        void writeTimesElement( TrxEmissionType emissionType );
         void writeUnwindOutput(
-            StreamingReporterUnwindContext const& unwindContext );
+            StreamingReporterUnwindContext const& unwindContext,
+            TrxEmissionType emissionType );
         void startUnitTestResultElement( const std::string& executionId,
                                          const std::string& testId,
                                          const std::string& name );
         void
         writeInnerResult( StreamingReporterUnwindContext const& unwindContext,
                           const std::string& parentExecutionId );
-        void writeToplevelResult( VstestEntry const& testEntry );
+        void writeToplevelResult( VstestEntry const& testEntry, TrxEmissionType emissionType );
 
-        void writeResults();
+        void writeResults( TrxEmissionType emissionType );
 
-        void writeTestDefinitions();
+        void writeTestDefinitions( TrxEmissionType emissionType );
 
-        void writeTestEntries();
+        void writeTestEntries( TrxEmissionType emissionType );
 
-        void writeTestLists();
+        void writeTestLists( TrxEmissionType emissionType );
 
-        void writeSummaryElement();
+        void writeSummaryElement( TrxEmissionType emissionType );
 
-        void emitTrx();
+        void emitTrx(TrxEmissionType emissionType);
 
     private:
         void flushCurrentUnwindContext(
