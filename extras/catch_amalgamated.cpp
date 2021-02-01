@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: BSL-1.0
 
 //  Catch v3.0.0-preview.3
-//  Generated: 2020-10-08 13:59:26.616931
+//  Generated: 2021-02-01 14:43:02.365170
 //  ----------------------------------------------------------
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
@@ -190,7 +190,7 @@ namespace Catch {
                     double k0 = -n * nd;
                     double k1 = sb2 - n * sg2 + nd;
                     double det = k1 * k1 - 4 * sg2 * k0;
-                    return (int)(-2. * k0 / (k1 + std::sqrt(det)));
+                    return static_cast<int>(-2. * k0 / (k1 + std::sqrt(det)));
                 };
 
                 auto var_out = [n, sb2, sg2](double c) {
@@ -576,15 +576,27 @@ namespace Catch {
     int Config::abortAfter() const                     { return m_data.abortAfter; }
     bool Config::showInvisibles() const                { return m_data.showInvisibles; }
     Verbosity Config::verbosity() const                { return m_data.verbosity; }
-
+    std::string Config::sourcePathPrefix() const       { return m_data.sourcePathPrefix; }
+    std::vector<std::string> const& Config
+        ::reportAttachmentPaths() const                { return m_data.reportAttachmentPaths; }
     bool Config::benchmarkNoAnalysis() const                      { return m_data.benchmarkNoAnalysis; }
     int Config::benchmarkSamples() const                          { return m_data.benchmarkSamples; }
     double Config::benchmarkConfidenceInterval() const            { return m_data.benchmarkConfidenceInterval; }
     unsigned int Config::benchmarkResamples() const               { return m_data.benchmarkResamples; }
     std::chrono::milliseconds Config::benchmarkWarmupTime() const { return std::chrono::milliseconds(m_data.benchmarkWarmupTime); }
+#if defined(CATCH_CONFIG_NEW_CAPTURE)
+    OutputRedirectSink* Config
+        ::standardOutputRedirect() const               { return m_data.standardOutputRedirect; }
+    OutputRedirectSink* Config
+        ::standardErrorRedirect() const                { return m_data.standardErrorRedirect; }
+#endif
 
-    IStream const* Config::openStream() {
+    IStream* Config::openStream() {
         return Catch::makeStream(m_data.outputFilename);
+    }
+
+    void Config::resetOutputStream() {
+        m_stream.reset( Catch::makeStream( m_data.outputFilename ) );
     }
 
 } // end namespace Catch
@@ -811,7 +823,7 @@ namespace Catch {
             // doesn't compile without a std::move call. However, this causes
             // a warning on newer platforms. Thus, we have to work around
             // it a bit and downcast the pointer manually.
-            auto ret = Detail::unique_ptr<IStreamingReporter>(new ListeningReporter);
+            auto ret = Detail::unique_ptr<IStreamingReporter>(new ListeningReporter(config));
             auto& multi = static_cast<ListeningReporter&>(*ret);
             auto const& listeners = Catch::getRegistryHub().getReporterRegistry().getListeners();
             for (auto const& listener : listeners) {
@@ -1248,6 +1260,9 @@ namespace Catch {
         std::string combined("#");
         combined += extractFilenamePart(lineInfo.file);
         internalAppendTag(combined);
+        // TBD: Running this over all tags again is inefficient, but
+        //      simple enough. In practice, the overhead is small enough.
+        toLowerInPlace(backingLCaseTags);
     }
 
     std::string TestCaseInfo::tagsAsString() const {
@@ -2025,83 +2040,6 @@ namespace Catch {
     {}
 
     void IStreamingReporter::fatalErrorEncountered( StringRef ) {}
-
-    void IStreamingReporter::listReporters(std::vector<ReporterDescription> const& descriptions, IConfig const& config) {
-        Catch::cout() << "Available reporters:\n";
-        const auto maxNameLen = std::max_element(descriptions.begin(), descriptions.end(),
-            [](ReporterDescription const& lhs, ReporterDescription const& rhs) { return lhs.name.size() < rhs.name.size(); })
-            ->name.size();
-
-        for (auto const& desc : descriptions) {
-            if (config.verbosity() == Verbosity::Quiet) {
-                Catch::cout()
-                    << TextFlow::Column(desc.name)
-                    .indent(2)
-                    .width(5 + maxNameLen) << '\n';
-            } else {
-                Catch::cout()
-                    << TextFlow::Column(desc.name + ":")
-                    .indent(2)
-                    .width(5 + maxNameLen)
-                    + TextFlow::Column(desc.description)
-                    .initialIndent(0)
-                    .indent(2)
-                    .width(CATCH_CONFIG_CONSOLE_WIDTH - maxNameLen - 8)
-                    << '\n';
-            }
-        }
-        Catch::cout() << std::endl;
-    }
-
-    void IStreamingReporter::listTests(std::vector<TestCaseHandle> const& tests, IConfig const& config) {
-        if (config.hasTestFilters()) {
-            Catch::cout() << "Matching test cases:\n";
-        } else {
-            Catch::cout() << "All available test cases:\n";
-        }
-
-        for (auto const& test : tests) {
-            auto const& testCaseInfo = test.getTestCaseInfo();
-            Colour::Code colour = testCaseInfo.isHidden()
-                ? Colour::SecondaryText
-                : Colour::None;
-            Colour colourGuard(colour);
-
-            Catch::cout() << TextFlow::Column(testCaseInfo.name).initialIndent(2).indent(4) << '\n';
-            if (config.verbosity() >= Verbosity::High) {
-                Catch::cout() << TextFlow::Column(Catch::Detail::stringify(testCaseInfo.lineInfo)).indent(4) << std::endl;
-            }
-            if (!testCaseInfo.tags.empty() && config.verbosity() > Verbosity::Quiet) {
-                Catch::cout() << TextFlow::Column(testCaseInfo.tagsAsString()).indent(6) << '\n';
-            }
-        }
-
-        if (!config.hasTestFilters()) {
-            Catch::cout() << pluralise(tests.size(), "test case") << '\n' << std::endl;
-        } else {
-            Catch::cout() << pluralise(tests.size(), "matching test case") << '\n' << std::endl;
-        }
-    }
-
-    void IStreamingReporter::listTags(std::vector<TagInfo> const& tags, IConfig const& config) {
-        if (config.hasTestFilters()) {
-            Catch::cout() << "Tags for matching test cases:\n";
-        } else {
-            Catch::cout() << "All available tags:\n";
-        }
-
-        for (auto const& tagCount : tags) {
-            ReusableStringStream rss;
-            rss << "  " << std::setw(2) << tagCount.count << "  ";
-            auto str = rss.str();
-            auto wrapper = TextFlow::Column(tagCount.all())
-                .initialIndent(0)
-                .indent(str.size())
-                .width(CATCH_CONFIG_CONSOLE_WIDTH - 10);
-            Catch::cout() << str << wrapper << '\n';
-        }
-        Catch::cout() << pluralise(tags.size(), "tag") << '\n' << std::endl;
-    }
 
 } // end namespace Catch
 
@@ -2945,6 +2883,22 @@ namespace Catch {
                 return ParserResult::runtimeError( "Unrecognized reporter, '" + reporter + "'. Check available with --list-reporters" );
             return ParserResult::ok( ParseResultType::Matched );
         };
+        auto const setReportAttachmentPaths = [&]( std::string pathsFromCli ) {
+            std::istringstream streamOfPaths(pathsFromCli);
+            std::string currentPath;
+            while (getline(streamOfPaths, currentPath, ';')) {
+                config.reportAttachmentPaths.push_back(currentPath);
+            }
+            return ParserResult::ok( ParseResultType::Matched );
+        };
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+        auto const setStandardOutRedirect = [&]( std::string redirectFilePath ) {
+            config.standardOutputRedirect = new OutputRedirectSink(stdout, redirectFilePath);
+        };
+        auto const setStandardErrorRedirect = [&]( std::string redirectFilePath ) {
+            config.standardErrorRedirect = new OutputRedirectSink(stderr, redirectFilePath);
+        };
+#endif
 
         auto cli
             = ExeName( config.processName )
@@ -3036,37 +2990,24 @@ namespace Catch {
             | Opt( config.benchmarkWarmupTime, "benchmarkWarmupTime" )
                 ["--benchmark-warmup-time"]
                 ( "amount of time in milliseconds spent on warming up each test (default: 100)" )
+            | Opt (config.sourcePathPrefix, "source prefix" )
+                ["--source-path-prefix"]
+                ( "common root path to exclude from reporting of source files when present" )
+            | Opt ( setReportAttachmentPaths, "attachment paths" )
+                ["--report-attachment-paths"]
+                ( "with supported reporters, additional files to reference in the report" )
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+            | Opt ( setStandardOutRedirect, "standard output redirect file" )
+                ["--standard-out-redirect-file"]
+                ( "path to use as a temporary file for output redirection with supported reporters")
+            | Opt ( setStandardErrorRedirect, "standard error redirect file" )
+                ["--standard-error-redirect-file"]
+                ( "path to use as a temporary file for error redirection with supported reporters")
+#endif
             | Arg( config.testsOrTags, "test name|pattern|tags" )
                 ( "which test or tests to use" );
 
         return cli;
-    }
-
-} // end namespace Catch
-
-
-
-#include <cstring>
-#include <ostream>
-
-namespace Catch {
-
-    bool SourceLineInfo::operator == ( SourceLineInfo const& other ) const noexcept {
-        return line == other.line && (file == other.file || std::strcmp(file, other.file) == 0);
-    }
-    bool SourceLineInfo::operator < ( SourceLineInfo const& other ) const noexcept {
-        // We can assume that the same file will usually have the same pointer.
-        // Thus, if the pointers are the same, there is no point in calling the strcmp
-        return line < other.line || ( line == other.line && file != other.file && (std::strcmp(file, other.file) < 0));
-    }
-
-    std::ostream& operator << ( std::ostream& os, SourceLineInfo const& info ) {
-#ifndef __GNUG__
-        os << info.file << '(' << info.line << ')';
-#else
-        os << info.file << ':' << info.line;
-#endif
-        return os;
     }
 
 } // end namespace Catch
@@ -3828,7 +3769,7 @@ namespace Catch {
         void listTests(IStreamingReporter& reporter, IConfig const& config) {
             auto const& testSpec = config.testSpec();
             auto matchedTestCases = filterTests(getAllTestCasesSorted(config), testSpec, config);
-            reporter.listTests(matchedTestCases, config);
+            reporter.listTests(matchedTestCases);
         }
 
         void listTags(IStreamingReporter& reporter, IConfig const& config) {
@@ -3850,10 +3791,10 @@ namespace Catch {
                 infos.push_back(std::move(tagc.second));
             }
 
-            reporter.listTags(infos, config);
+            reporter.listTags(infos);
         }
 
-        void listReporters(IStreamingReporter& reporter, IConfig const& config) {
+        void listReporters(IStreamingReporter& reporter) {
             std::vector<ReporterDescription> descriptions;
 
             IReporterRegistry::FactoryMap const& factories = getRegistryHub().getReporterRegistry().getFactories();
@@ -3862,7 +3803,7 @@ namespace Catch {
                 descriptions.push_back({ fac.first, fac.second->getDescription() });
             }
 
-            reporter.listReporters(descriptions, config);
+            reporter.listReporters(descriptions);
         }
 
     } // end anonymous namespace
@@ -3900,7 +3841,7 @@ namespace Catch {
         }
         if (config.listReporters()) {
             listed = true;
-            listReporters(reporter, config);
+            listReporters(reporter);
         }
         return listed;
     }
@@ -3985,21 +3926,51 @@ namespace Catch {
 #if defined(CATCH_CONFIG_NEW_CAPTURE)
 
 #if defined(_MSC_VER)
-    TempFile::TempFile() {
-        if (tmpnam_s(m_buffer)) {
+    TempFile::TempFile(std::string filePath) {
+        if ( !filePath.empty() ) {
+            const auto arraySize = sizeof( m_buffer ) / sizeof( m_buffer[0] );
+            if ( filePath.copy( m_buffer, arraySize ) != filePath.length() ) {
+                CATCH_RUNTIME_ERROR(
+                    "Provided temporary file path was too long to copy" );
+            }
+        }
+        else if (tmpnam_s(m_buffer)) {
             CATCH_RUNTIME_ERROR("Could not get a temp filename");
         }
-        if (fopen_s(&m_file, m_buffer, "w+")) {
+
+        reopen();
+    }
+
+    void TempFile::reopen() {
+        if ( m_file ) {
+            fclose( m_file );
+            m_file = nullptr;
+        }
+        if ( fopen_s( &m_file, m_buffer, "w+" ) ) {
             char buffer[100];
-            if (strerror_s(buffer, errno)) {
-                CATCH_RUNTIME_ERROR("Could not translate errno to a string");
+            if ( strerror_s( buffer, errno ) ) {
+                CATCH_RUNTIME_ERROR( "Could not translate errno to a string" );
             }
-            CATCH_RUNTIME_ERROR("Could not open the temp file: '" << m_buffer << "' because: " << buffer);
+            CATCH_RUNTIME_ERROR( "Could not open the temp file: '"
+                                 << m_buffer << "' because: " << buffer );
         }
     }
+
+    std::string TempFile::getPath() {
+        return m_buffer;
+    }
+
 #else
-    TempFile::TempFile() {
-        m_file = std::tmpfile();
+    TempFile::TempFile(std::string filePath) {
+        m_filePath = filePath;
+    }
+
+    void TempFile::reopen() {
+        if ( m_file ) {
+            std::fclose( m_file );
+            m_file = nullptr;
+        }
+        m_file = m_filePath.empty() ? std::tmpfile() : std::fopen( m_filePath.c_str(), "w+" );
         if (!m_file) {
             CATCH_RUNTIME_ERROR("Could not create a temp file.");
         }
@@ -4017,12 +3988,12 @@ namespace Catch {
 #endif
     }
 
-
     FILE* TempFile::getFile() {
         return m_file;
     }
 
     std::string TempFile::getContents() {
+        fflush(m_file);
         std::stringstream sstr;
         char buffer[100] = {};
         std::rewind(m_file);
@@ -4032,29 +4003,52 @@ namespace Catch {
         return sstr.str();
     }
 
+    OutputRedirectSink::OutputRedirectSink(
+        FILE* redirectionSource,
+        std::string redirectionTemporaryFilePath ) 
+        : m_originalSource( redirectionSource )
+        , m_tempFile( redirectionTemporaryFilePath )
+    {
+        // Disable buffering for the redirection stream -- this will persist even after the
+        // redirection completes!
+        setbuf( redirectionSource, NULL );
+
+        m_originalSourceDescriptor = fileno( redirectionSource );
+        m_originalSourceCopyDescriptor = dup( m_originalSourceDescriptor );
+        dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
+    }
+
+    OutputRedirectSink::~OutputRedirectSink() {
+        dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
+    }
+
+    std::string OutputRedirectSink::getContents() {
+        fflush( m_originalSource );
+        return m_tempFile.getContents();
+    }
+
+    void OutputRedirectSink::reset() {
+        dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
+        m_tempFile.reopen();
+        dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
+    }
+
     OutputRedirect::OutputRedirect(std::string& stdout_dest, std::string& stderr_dest) :
-        m_originalStdout(dup(1)),
-        m_originalStderr(dup(2)),
+        m_stdOutRedirect(stdout),
+        m_stdErrRedirect(stderr),
         m_stdoutDest(stdout_dest),
         m_stderrDest(stderr_dest) {
-        dup2(fileno(m_stdoutFile.getFile()), 1);
-        dup2(fileno(m_stderrFile.getFile()), 2);
     }
 
     OutputRedirect::~OutputRedirect() {
-        Catch::cout() << std::flush;
-        fflush(stdout);
         // Since we support overriding these streams, we flush cerr
         // even though std::cerr is unbuffered
+        Catch::cout() << std::flush;
         Catch::cerr() << std::flush;
         Catch::clog() << std::flush;
-        fflush(stderr);
 
-        dup2(m_originalStdout, 1);
-        dup2(m_originalStderr, 2);
-
-        m_stdoutDest += m_stdoutFile.getContents();
-        m_stderrDest += m_stderrFile.getContents();
+        m_stdoutDest += m_stdOutRedirect.getContents();
+        m_stderrDest += m_stdErrRedirect.getContents();
     }
 
 #endif // CATCH_CONFIG_NEW_CAPTURE
@@ -4148,6 +4142,7 @@ namespace Catch {
         m_factories["sonarqube"] = Detail::make_unique<ReporterFactory<SonarQubeReporter>>();
         m_factories["tap"] = Detail::make_unique<ReporterFactory<TAPReporter>>();
         m_factories["teamcity"] = Detail::make_unique<ReporterFactory<TeamCityReporter>>();
+        m_factories["vstest"] = Detail::make_unique<ReporterFactory<VstestReporter>>();
         m_factories["xml"] = Detail::make_unique<ReporterFactory<XmlReporter>>();
     }
 
@@ -4215,7 +4210,7 @@ namespace Catch {
             ~GeneratorTracker();
 
             static GeneratorTracker& acquire( TrackerContext& ctx, TestCaseTracking::NameAndLocation const& nameAndLocation ) {
-                std::shared_ptr<GeneratorTracker> tracker;
+                GeneratorTracker* tracker;
 
                 ITracker& currentTracker = ctx.currentTracker();
                 // Under specific circumstances, the generator we want
@@ -4229,18 +4224,23 @@ namespace Catch {
                 //     }
                 //
                 // without it, the code above creates 5 nested generators.
-                if (currentTracker.nameAndLocation() == nameAndLocation) {
-                    auto thisTracker = currentTracker.parent().findChild(nameAndLocation);
-                    assert(thisTracker);
-                    assert(thisTracker->isGeneratorTracker());
-                    tracker = std::static_pointer_cast<GeneratorTracker>(thisTracker);
-                } else if ( TestCaseTracking::ITrackerPtr childTracker = currentTracker.findChild( nameAndLocation ) ) {
+                if ( currentTracker.nameAndLocation() == nameAndLocation ) {
+                    auto thisTracker =
+                        currentTracker.parent().findChild( nameAndLocation );
+                    assert( thisTracker );
+                    assert( thisTracker->isGeneratorTracker() );
+                    tracker = static_cast<GeneratorTracker*>( thisTracker );
+                } else if ( ITracker* childTracker =
+                                currentTracker.findChild( nameAndLocation ) ) {
                     assert( childTracker );
                     assert( childTracker->isGeneratorTracker() );
-                    tracker = std::static_pointer_cast<GeneratorTracker>( childTracker );
+                    tracker = static_cast<GeneratorTracker*>( childTracker );
                 } else {
-                    tracker = std::make_shared<GeneratorTracker>( nameAndLocation, ctx, &currentTracker );
-                    currentTracker.addChild( tracker );
+                    auto newTracker =
+                        Catch::Detail::make_unique<GeneratorTracker>(
+                            nameAndLocation, ctx, &currentTracker );
+                    tracker = newTracker.get();
+                    currentTracker.addChild( std::move(newTracker) );
                 }
 
                 if( !tracker->isComplete() ) {
@@ -4264,13 +4264,53 @@ namespace Catch {
                 // `SECTION`s.
                 // **The check for m_children.empty cannot be removed**.
                 // doing so would break `GENERATE` _not_ followed by `SECTION`s.
-                const bool should_wait_for_child =
-                    !m_children.empty() &&
-                    std::find_if( m_children.begin(),
-                                  m_children.end(),
-                                  []( TestCaseTracking::ITrackerPtr tracker ) {
-                                      return tracker->hasStarted();
-                                  } ) == m_children.end();
+                const bool should_wait_for_child = [&]() {
+                    // No children -> nobody to wait for
+                    if ( m_children.empty() ) {
+                        return false;
+                    }
+                    // If at least one child started executing, don't wait
+                    if ( std::find_if(
+                             m_children.begin(),
+                             m_children.end(),
+                             []( TestCaseTracking::ITrackerPtr const& tracker ) {
+                                 return tracker->hasStarted();
+                             } ) != m_children.end() ) {
+                        return false;
+                    }
+
+                    // No children have started. We need to check if they _can_
+                    // start, and thus we should wait for them, or they cannot
+                    // start (due to filters), and we shouldn't wait for them
+                    ITracker* parent = m_parent;
+                    // This is safe: there is always at least one section
+                    // tracker in a test case tracking tree
+                    while ( !parent->isSectionTracker() ) {
+                        parent = &( parent->parent() );
+                    }
+                    assert( parent &&
+                            "Missing root (test case) level section" );
+
+                    auto const& parentSection =
+                        static_cast<SectionTracker const&>( *parent );
+                    auto const& filters = parentSection.getFilters();
+                    // No filters -> no restrictions on running sections
+                    if ( filters.empty() ) {
+                        return true;
+                    }
+
+                    for ( auto const& child : m_children ) {
+                        if ( child->isSectionTracker() &&
+                             std::find(
+                                 filters.begin(),
+                                 filters.end(),
+                                 static_cast<SectionTracker const&>( *child )
+                                     .trimmedName() ) != filters.end() ) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }();
 
                 // This check is a bit tricky, because m_generator->next()
                 // has a side-effect, where it consumes generator's current
@@ -4563,9 +4603,17 @@ namespace Catch {
                 timer.start();
                 invokeActiveTestCase();
 #else
-                OutputRedirect r(redirectedCout, redirectedCerr);
-                timer.start();
-                invokeActiveTestCase();
+                // If specific temporary destinations were specified via config, use those;
+                // otherwise just use temporary files.
+                if (m_config->standardOutputRedirect() || m_config->standardErrorRedirect()) {
+                    timer.start();
+                    invokeActiveTestCase();
+                } else {
+                    // Duplicated for RAII behavior of OutputRedirect
+                    OutputRedirect autoRedirect{ redirectedCout, redirectedCerr };
+                    timer.start();
+                    invokeActiveTestCase();
+                }
 #endif
             } else {
                 timer.start();
@@ -4807,6 +4855,33 @@ namespace Catch {
 
 
 
+#include <cstring>
+#include <ostream>
+
+namespace Catch {
+
+    bool SourceLineInfo::operator == ( SourceLineInfo const& other ) const noexcept {
+        return line == other.line && (file == other.file || std::strcmp(file, other.file) == 0);
+    }
+    bool SourceLineInfo::operator < ( SourceLineInfo const& other ) const noexcept {
+        // We can assume that the same file will usually have the same pointer.
+        // Thus, if the pointers are the same, there is no point in calling the strcmp
+        return line < other.line || ( line == other.line && file != other.file && (std::strcmp(file, other.file) < 0));
+    }
+
+    std::ostream& operator << ( std::ostream& os, SourceLineInfo const& info ) {
+#ifndef __GNUG__
+        os << info.file << '(' << info.line << ')';
+#else
+        os << info.file << ':' << info.line;
+#endif
+        return os;
+    }
+
+} // end namespace Catch
+
+
+
 #include <cstdio>
 #include <iostream>
 #include <fstream>
@@ -4916,7 +4991,7 @@ namespace Detail {
 
     ///////////////////////////////////////////////////////////////////////////
 
-    auto makeStream( StringRef const &filename ) -> IStream const* {
+    auto makeStream( StringRef const &filename ) -> IStream* {
         if( filename.empty() )
             return new Detail::CoutStream();
         else if( filename[0] == '%' ) {
@@ -5332,7 +5407,6 @@ namespace {
 
 #include <algorithm>
 #include <cassert>
-#include <memory>
 
 #if defined(__clang__)
 #    pragma clang diagnostic push
@@ -5350,11 +5424,11 @@ namespace TestCaseTracking {
 
     ITracker::~ITracker() = default;
 
-    void ITracker::addChild( ITrackerPtr const& child ) {
-        m_children.push_back( child );
+    void ITracker::addChild( ITrackerPtr&& child ) {
+        m_children.push_back( std::move(child) );
     }
 
-    ITrackerPtr ITracker::findChild( NameAndLocation const& nameAndLocation ) {
+    ITracker* ITracker::findChild( NameAndLocation const& nameAndLocation ) {
         auto it = std::find_if(
             m_children.begin(),
             m_children.end(),
@@ -5363,14 +5437,17 @@ namespace TestCaseTracking {
                            nameAndLocation.location &&
                        tracker->nameAndLocation().name == nameAndLocation.name;
             } );
-        return ( it != m_children.end() ) ? *it : nullptr;
+        return ( it != m_children.end() ) ? it->get() : nullptr;
     }
 
 
 
     ITracker& TrackerContext::startRun() {
         using namespace std::string_literals;
-        m_rootTracker = std::make_shared<SectionTracker>( NameAndLocation( "{root}"s, CATCH_INTERNAL_LINEINFO ), *this, nullptr );
+        m_rootTracker = Catch::Detail::make_unique<SectionTracker>(
+            NameAndLocation( "{root}"s, CATCH_INTERNAL_LINEINFO ),
+            *this,
+            nullptr );
         m_currentTracker = nullptr;
         m_runState = Executing;
         return *m_rootTracker;
@@ -5515,17 +5592,19 @@ namespace TestCaseTracking {
     bool SectionTracker::isSectionTracker() const { return true; }
 
     SectionTracker& SectionTracker::acquire( TrackerContext& ctx, NameAndLocation const& nameAndLocation ) {
-        std::shared_ptr<SectionTracker> section;
+        SectionTracker* section;
 
         ITracker& currentTracker = ctx.currentTracker();
-        if( ITrackerPtr childTracker = currentTracker.findChild( nameAndLocation ) ) {
+        if ( ITracker* childTracker =
+                 currentTracker.findChild( nameAndLocation ) ) {
             assert( childTracker );
             assert( childTracker->isSectionTracker() );
-            section = std::static_pointer_cast<SectionTracker>( childTracker );
-        }
-        else {
-            section = std::make_shared<SectionTracker>( nameAndLocation, ctx, &currentTracker );
-            currentTracker.addChild( section );
+            section = static_cast<SectionTracker*>( childTracker );
+        } else {
+            auto newSection = Catch::Detail::make_unique<SectionTracker>(
+                nameAndLocation, ctx, &currentTracker );
+            section = newSection.get();
+            currentTracker.addChild( std::move( newSection ) );
         }
         if( !ctx.completedCycle() )
             section->tryOpen();
@@ -5548,6 +5627,14 @@ namespace TestCaseTracking {
     void SectionTracker::addNextFilters( std::vector<std::string> const& filters ) {
         if( filters.size() > 1 )
             m_filters.insert( m_filters.end(), filters.begin()+1, filters.end() );
+    }
+
+    std::vector<std::string> const& SectionTracker::getFilters() const {
+        return m_filters;
+    }
+
+    std::string const& SectionTracker::trimmedName() const {
+        return m_trimmed_name;
     }
 
 } // namespace TestCaseTracking
@@ -6952,11 +7039,32 @@ namespace Catch {
  */
 
 
+#include <algorithm>
 #include <cfloat>
 #include <cstdio>
 #include <ostream>
+#include <iomanip>
 
 namespace Catch {
+
+    namespace {
+        void listTestNamesOnly(std::ostream& out,
+                               std::vector<TestCaseHandle> const& tests) {
+            for (auto const& test : tests) {
+                auto const& testCaseInfo = test.getTestCaseInfo();
+
+                if (startsWith(testCaseInfo.name, '#')) {
+                    out << '"' << testCaseInfo.name << '"';
+                } else {
+                    out << testCaseInfo.name;
+                }
+
+                out << '\n';
+            }
+            out << std::flush;
+        }
+    } // end unnamed namespace
+
 
     // Because formatting using c++ streams is stateful, drop down to C is
     // required Alternatively we could use stringstream, but its performance
@@ -6974,7 +7082,7 @@ namespace Catch {
 #ifdef _MSC_VER
         sprintf_s( buffer, "%.3f", duration );
 #else
-        std::sprintf( buffer, "%.3f", duration );
+        std::snprintf( buffer, maxDoubleSize, "%.3f", duration );
 #endif
         return std::string( buffer );
     }
@@ -7019,6 +7127,101 @@ namespace Catch {
         return out;
     }
 
+    void
+    defaultListReporters( std::ostream& out,
+                          std::vector<ReporterDescription> const& descriptions,
+                          Verbosity verbosity ) {
+        out << "Available reporters:\n";
+        const auto maxNameLen =
+            std::max_element( descriptions.begin(),
+                              descriptions.end(),
+                              []( ReporterDescription const& lhs,
+                                  ReporterDescription const& rhs ) {
+                                  return lhs.name.size() < rhs.name.size();
+                              } )
+                ->name.size();
+
+        for ( auto const& desc : descriptions ) {
+            if ( verbosity == Verbosity::Quiet ) {
+                out << TextFlow::Column( desc.name )
+                           .indent( 2 )
+                           .width( 5 + maxNameLen )
+                    << '\n';
+            } else {
+                out << TextFlow::Column( desc.name + ":" )
+                               .indent( 2 )
+                               .width( 5 + maxNameLen ) +
+                           TextFlow::Column( desc.description )
+                               .initialIndent( 0 )
+                               .indent( 2 )
+                               .width( CATCH_CONFIG_CONSOLE_WIDTH - maxNameLen - 8 )
+                    << '\n';
+            }
+        }
+        out << '\n' << std::flush;
+    }
+
+    void defaultListTags( std::ostream& out,
+                          std::vector<TagInfo> const& tags,
+                          bool isFiltered ) {
+        if ( isFiltered ) {
+            out << "Tags for matching test cases:\n";
+        } else {
+            out << "All available tags:\n";
+        }
+
+        for ( auto const& tagCount : tags ) {
+            ReusableStringStream rss;
+            rss << "  " << std::setw( 2 ) << tagCount.count << "  ";
+            auto str = rss.str();
+            auto wrapper = TextFlow::Column( tagCount.all() )
+                               .initialIndent( 0 )
+                               .indent( str.size() )
+                               .width( CATCH_CONFIG_CONSOLE_WIDTH - 10 );
+            out << str << wrapper << '\n';
+        }
+        out << pluralise( tags.size(), "tag" ) << '\n' << std::endl;
+    }
+
+    void defaultListTests(std::ostream& out, std::vector<TestCaseHandle> const& tests, bool isFiltered, Verbosity verbosity) {
+        // We special case this to provide the equivalent of old
+        // `--list-test-names-only`, which could then be used by the
+        // `--input-file` option.
+        if (verbosity == Verbosity::Quiet) {
+            listTestNamesOnly(out, tests);
+            return;
+        }
+
+        if (isFiltered) {
+            out << "Matching test cases:\n";
+        } else {
+            out << "All available test cases:\n";
+        }
+
+        for (auto const& test : tests) {
+            auto const& testCaseInfo = test.getTestCaseInfo();
+            Colour::Code colour = testCaseInfo.isHidden()
+                ? Colour::SecondaryText
+                : Colour::None;
+            Colour colourGuard(colour);
+
+            out << TextFlow::Column(testCaseInfo.name).initialIndent(2).indent(4) << '\n';
+            if (verbosity >= Verbosity::High) {
+                out << TextFlow::Column(Catch::Detail::stringify(testCaseInfo.lineInfo)).indent(4) << std::endl;
+            }
+            if (!testCaseInfo.tags.empty() &&
+                verbosity > Verbosity::Quiet) {
+                out << TextFlow::Column(testCaseInfo.tagsAsString()).indent(6) << '\n';
+            }
+        }
+
+        if (isFiltered) {
+            out << pluralise(tests.size(), "matching test case") << '\n' << std::endl;
+        } else {
+            out << pluralise(tests.size(), "test case") << '\n' << std::endl;
+        }
+    }
+
 } // namespace Catch
 
 
@@ -7029,13 +7232,10 @@ namespace Catch {
     bool EventListenerBase::assertionEnded( AssertionStats const& ) {
         return false;
     }
-    void
-    EventListenerBase::listReporters( std::vector<ReporterDescription> const&,
-                                      IConfig const& ) {}
-    void EventListenerBase::listTests( std::vector<TestCaseHandle> const&,
-                                       IConfig const& ) {}
-    void EventListenerBase::listTags( std::vector<TagInfo> const&,
-                                      IConfig const& ) {}
+    void EventListenerBase::listReporters(
+        std::vector<ReporterDescription> const& ) {}
+    void EventListenerBase::listTests( std::vector<TestCaseHandle> const& ) {}
+    void EventListenerBase::listTags( std::vector<TagInfo> const& ) {}
     void EventListenerBase::noMatchingTestCases( std::string const& ) {}
     void EventListenerBase::testRunStarting( TestRunInfo const& ) {}
     void EventListenerBase::testGroupStarting( GroupInfo const& ) {}
@@ -8034,7 +8234,7 @@ namespace Catch {
             BySectionInfo( BySectionInfo const& other ):
                 m_other( other.m_other ) {}
             bool operator()(
-                std::shared_ptr<CumulativeReporterBase::SectionNode> const&
+                Detail::unique_ptr<CumulativeReporterBase::SectionNode> const&
                     node ) const {
                 return (
                     ( node->stats.sectionInfo.name == m_other.name ) &&
@@ -8046,9 +8246,6 @@ namespace Catch {
             SectionInfo const& m_other;
         };
 
-        void prepareExpandedExpression( AssertionResult& result ) {
-            result.getExpandedExpression();
-        }
     } // namespace
 
 
@@ -8057,26 +8254,30 @@ namespace Catch {
     void
     CumulativeReporterBase::sectionStarting( SectionInfo const& sectionInfo ) {
         SectionStats incompleteStats( sectionInfo, Counts(), 0, false );
-        std::shared_ptr<SectionNode> node;
+        SectionNode* node;
         if ( m_sectionStack.empty() ) {
-            if ( !m_rootSection )
+            if ( !m_rootSection ) {
                 m_rootSection =
-                    std::make_shared<SectionNode>( incompleteStats );
-            node = m_rootSection;
+                    Detail::make_unique<SectionNode>( incompleteStats );
+            }
+            node = m_rootSection.get();
         } else {
             SectionNode& parentNode = *m_sectionStack.back();
             auto it = std::find_if( parentNode.childSections.begin(),
                                     parentNode.childSections.end(),
                                     BySectionInfo( sectionInfo ) );
             if ( it == parentNode.childSections.end() ) {
-                node = std::make_shared<SectionNode>( incompleteStats );
-                parentNode.childSections.push_back( node );
+                auto newNode =
+                    Detail::make_unique<SectionNode>( incompleteStats );
+                node = newNode.get();
+                parentNode.childSections.push_back( std::move( newNode ) );
             } else {
-                node = *it;
+                node = it->get();
             }
         }
+
+        m_deepestSection = node;
         m_sectionStack.push_back( node );
-        m_deepestSection = std::move( node );
     }
 
     bool CumulativeReporterBase::assertionEnded(
@@ -8087,8 +8288,8 @@ namespace Catch {
         // Our section stack copy of the assertionResult will likely outlive the
         // temporary, so it must be expanded or discarded now to avoid calling
         // a destroyed object later.
-        prepareExpandedExpression(
-            const_cast<AssertionResult&>( assertionStats.assertionResult ) );
+        static_cast<void>(
+            assertionStats.assertionResult.getExpandedExpression() );
         SectionNode& sectionNode = *m_sectionStack.back();
         sectionNode.assertions.push_back( assertionStats );
         return true;
@@ -8103,11 +8304,10 @@ namespace Catch {
 
     void CumulativeReporterBase::testCaseEnded(
         TestCaseStats const& testCaseStats ) {
-        auto node = std::make_shared<TestCaseNode>( testCaseStats );
+        auto node = Detail::make_unique<TestCaseNode>( testCaseStats );
         assert( m_sectionStack.size() == 0 );
-        node->children.push_back( m_rootSection );
-        m_testCases.push_back( node );
-        m_rootSection.reset();
+        node->children.push_back( std::move(m_rootSection) );
+        m_testCases.push_back( std::move(node) );
 
         assert( m_deepestSection );
         m_deepestSection->stdOut = testCaseStats.stdOut;
@@ -8116,16 +8316,30 @@ namespace Catch {
 
     void CumulativeReporterBase::testGroupEnded(
         TestGroupStats const& testGroupStats ) {
-        auto node = std::make_shared<TestGroupNode>( testGroupStats );
+        auto node = Detail::make_unique<TestGroupNode>( testGroupStats );
         node->children.swap( m_testCases );
-        m_testGroups.push_back( node );
+        m_testGroups.push_back( std::move(node) );
     }
 
     void CumulativeReporterBase::testRunEnded( TestRunStats const& testRunStats ) {
-        auto node = std::make_shared<TestRunNode>( testRunStats );
-        node->children.swap( m_testGroups );
-        m_testRuns.push_back( node );
+        m_testRuns.emplace_back( testRunStats );
+        m_testRuns.back().children.swap( m_testGroups );
         testRunEndedCumulative();
+    }
+
+    void CumulativeReporterBase::listReporters(std::vector<ReporterDescription> const& descriptions) {
+        defaultListReporters(stream, descriptions, m_config->verbosity());
+    }
+
+    void CumulativeReporterBase::listTests(std::vector<TestCaseHandle> const& tests) {
+        defaultListTests(stream,
+                         tests,
+                         m_config->hasTestFilters(),
+                         m_config->verbosity());
+    }
+
+    void CumulativeReporterBase::listTags(std::vector<TagInfo> const& tags) {
+        defaultListTags( stream, tags, m_config->hasTestFilters() );
     }
 
 } // end namespace Catch
@@ -8141,28 +8355,22 @@ namespace Catch {
 
     namespace {
         std::string getCurrentTimestamp() {
-            // Beware, this is not reentrant because of backward compatibility issues
-            // Also, UTC only, again because of backward compatibility (%z is C++11)
             time_t rawtime;
             std::time(&rawtime);
-            auto const timeStampSize = sizeof("2017-01-16T17:06:45Z");
 
-#ifdef _MSC_VER
             std::tm timeInfo = {};
+#ifdef _MSC_VER
             gmtime_s(&timeInfo, &rawtime);
 #else
-            std::tm* timeInfo;
-            timeInfo = std::gmtime(&rawtime);
+            gmtime_r(&rawtime, &timeInfo);
 #endif
 
+            auto const timeStampSize = sizeof("2017-01-16T17:06:45Z");
             char timeStamp[timeStampSize];
             const char * const fmt = "%Y-%m-%dT%H:%M:%SZ";
 
-#ifdef _MSC_VER
             std::strftime(timeStamp, timeStampSize, fmt, &timeInfo);
-#else
-            std::strftime(timeStamp, timeStampSize, fmt, timeInfo);
-#endif
+
             return std::string(timeStamp);
         }
 
@@ -8407,11 +8615,6 @@ namespace Catch {
 
 namespace Catch {
 
-    ListeningReporter::ListeningReporter() {
-        // We will assume that listeners will always want all assertions
-        m_preferences.shouldReportAllAssertions = true;
-    }
-
     void ListeningReporter::addListener( IStreamingReporterPtr&& listener ) {
         m_listeners.push_back( std::move( listener ) );
     }
@@ -8542,25 +8745,25 @@ namespace Catch {
         m_reporter->skipTest( testInfo );
     }
 
-    void ListeningReporter::listReporters(std::vector<ReporterDescription> const& descriptions, IConfig const& config) {
+    void ListeningReporter::listReporters(std::vector<ReporterDescription> const& descriptions) {
         for (auto const& listener : m_listeners) {
-            listener->listReporters(descriptions, config);
+            listener->listReporters(descriptions);
         }
-        m_reporter->listReporters(descriptions, config);
+        m_reporter->listReporters(descriptions);
     }
 
-    void ListeningReporter::listTests(std::vector<TestCaseHandle> const& tests, IConfig const& config) {
+    void ListeningReporter::listTests(std::vector<TestCaseHandle> const& tests) {
         for (auto const& listener : m_listeners) {
-            listener->listTests(tests, config);
+            listener->listTests(tests);
         }
-        m_reporter->listTests(tests, config);
+        m_reporter->listTests(tests);
     }
 
-    void ListeningReporter::listTags(std::vector<TagInfo> const& tags, IConfig const& config) {
+    void ListeningReporter::listTags(std::vector<TagInfo> const& tags) {
         for (auto const& listener : m_listeners) {
-            listener->listTags(tags, config);
+            listener->listTags(tags);
         }
-        m_reporter->listTags(tags, config);
+        m_reporter->listTags(tags);
     }
 
 } // end namespace Catch
@@ -8586,15 +8789,17 @@ namespace Catch {
     }
 
     void SonarQubeReporter::writeGroup(TestGroupNode const& groupNode) {
-        std::map<std::string, TestGroupNode::ChildNodes> testsPerFile;
-        for (auto const& child : groupNode.children)
-            testsPerFile[child->value.testInfo->lineInfo.file].push_back(child);
+        std::map<std::string, std::vector<TestCaseNode const*>> testsPerFile;
+        for ( auto const& child : groupNode.children ) {
+            testsPerFile[child->value.testInfo->lineInfo.file].push_back(
+                child.get() );
+        }
 
         for (auto const& kv : testsPerFile)
             writeTestFile(kv.first, kv.second);
     }
 
-    void SonarQubeReporter::writeTestFile(std::string const& filename, TestGroupNode::ChildNodes const& testCaseNodes) {
+    void SonarQubeReporter::writeTestFile(std::string const& filename, std::vector<TestCaseNode const*> const& testCaseNodes) {
         XmlWriter::ScopedElement e = xml.scopedElement("file");
         xml.writeAttribute("path", filename);
 
@@ -8721,6 +8926,21 @@ namespace Catch {
         currentTestCaseInfo = nullptr;
         currentGroupInfo.reset();
         currentTestRunInfo.reset();
+    }
+
+    void StreamingReporterBase::listReporters(std::vector<ReporterDescription> const& descriptions) {
+        defaultListReporters( stream, descriptions, m_config->verbosity() );
+    }
+
+    void StreamingReporterBase::listTests(std::vector<TestCaseHandle> const& tests) {
+        defaultListTests(stream,
+                         tests,
+                         m_config->hasTestFilters(),
+                         m_config->verbosity());
+    }
+
+    void StreamingReporterBase::listTags(std::vector<TagInfo> const& tags) {
+        defaultListTags( stream, tags, m_config->hasTestFilters() );
     }
 
 } // end namespace Catch
@@ -9107,7 +9327,675 @@ namespace Catch {
     }
 
 } // end namespace Catch
+/*
+ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
+ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+ */
 
+#include "catch_reporter_vstest.hpp"
+
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <ctime>
+#include <random>
+#include <sstream>
+
+namespace Catch {
+
+    namespace { // anonymous namespace/this file only
+
+        // Several elements in Vstest require globally unique IDs (GUIDs). Here we use a random
+        // generation algorithm that's *not* guaranteed to be truly globally unique, but should
+        // be "unique enough" for all reasonable purposes that aren't correlating hundreds of
+        // thousands of test runs.
+        std::string get_random_not_guaranteed_unique_guid() {
+            auto get_random_uint = []() {
+                std::random_device random_device;
+                std::mt19937 random_generator(random_device());
+                std::uniform_int_distribution<unsigned int> random_distribution(
+                    std::numeric_limits<unsigned int>::min(),
+                    std::numeric_limits<unsigned int>::max());
+                return random_distribution(random_generator);
+            };
+
+            std::ostringstream guid_stream;
+
+            bool is_first_segment{ true };
+            for (const auto segmentLength : { 8, 4, 4, 4, 12 } ) {
+                guid_stream << (is_first_segment ? "" : "-");
+                is_first_segment = false;
+
+                for (int i = 0; i < segmentLength; i++) {
+                    guid_stream << std::hex << (get_random_uint() % 16);
+                }
+            }
+
+            return guid_stream.str();
+        }
+
+        std::string currentTimestamp() {
+            return Catch::Detail::stringify( std::chrono::system_clock::now() );
+        }
+
+        std::string nanosToDurationString( unsigned long long nanos ) {
+            auto totalSeconds = nanos / 1000000000;
+            auto totalMinutes = totalSeconds / 60;
+            auto totalHours = totalMinutes / 60;
+            constexpr auto bufferSize = sizeof( "hh:mm:ss.1234567" );
+            char buffer[bufferSize];
+            std::snprintf( buffer,
+                           bufferSize,
+                           "%02llu:%02llu:%02llu.%07llu",
+                           std::min( totalHours, 99ull ),
+                           totalMinutes % 60,
+                           totalSeconds % 60,
+                           ( nanos / 100 ) % 10000000 );
+            return std::string( buffer );
+        }
+
+        // Some consumers of output .trx files (e.g. Azure DevOps Pipelines) fail to ingest results
+        // from .trx files if they have certain characters in them. This removes those characters.
+        // to-do: make this a parameter or address the root problem of consumers being weird
+        std::string getSanitizedTrxName( const std::string& rawName ) {
+            ReusableStringStream resultStream;
+            auto lastChar = '\0';
+            for ( size_t i = 0; i < rawName.length(); ) {
+                if ( rawName[i] == '[' ) {
+                    if ( rawName.find( ']', i ) == std::string::npos ) {
+                        CATCH_ERROR( "Unclosed [tag] in name: " << rawName );
+                    }
+                    do {
+                        i++;
+                    } while ( rawName[i - 1] != ']' );
+                    if ( lastChar == ' ' && rawName[i] == ' ' ) {
+                        // "removed [tag] here" -> "removed  tag" -> "removed
+                        // tag"
+                        i++;
+                    }
+                } else if ( rawName[i] == ',' ) {
+                    i++;
+                } else {
+                    lastChar = rawName[i];
+                    resultStream << lastChar;
+                    i++;
+                }
+            }
+            return trim( resultStream.str() );
+        }
+
+        // Evaluates whether the provided context shares the same originating source context as the
+        // provided test entry's recorded context data.
+        bool contextCouldBeInEntry(
+            const StreamingReporterUnwindContext& context,
+            const VstestEntry& entry
+        ) {
+            const auto& firstContextInEntry = entry.unwindContexts[0];
+            return context.allSectionInfo[0].name ==
+                       firstContextInEntry.allSectionInfo[0].name &&
+                   context.allSectionInfo[0].lineInfo.line ==
+                       firstContextInEntry.allSectionInfo[0].lineInfo.line;
+        }
+
+        // Evaluates whether the provided context shares the same originating source context as the
+        // final test entry in a collection.
+        bool contextCouldBeInLastEntry(
+            const StreamingReporterUnwindContext& context,
+            const std::vector<VstestEntry>& entries
+        ) {
+            if ( entries.empty() )
+                return false;
+
+            return !entries.empty() &&
+                   contextCouldBeInEntry( context, entries[entries.size() - 1] );
+        }
+
+        std::string serializeSourceInfoForStackMessage(
+            const Catch::SourceLineInfo& sourceInfo,
+            const std::string& sourcePrefix
+        ) {
+            ReusableStringStream stackStream;
+            auto index = 0;
+            if ( sourcePrefix.compare( 0,
+                                    sourcePrefix.length(),
+                                    sourceInfo.file,
+                                    sourcePrefix.length() ) == 0 ) {
+                index = (int)sourcePrefix.length();
+            }
+            stackStream << "at Catch.Module.Method() in ";
+            for ( auto c = sourceInfo.file[index]; c != '\0';
+                c = sourceInfo.file[++index] ) {
+                stackStream << ( c == '\\' ? '/' : c );
+            }
+            stackStream << ":line " << sourceInfo.line << '\n';
+            return stackStream.str();
+        }
+    } // namespace
+
+    StreamingReporterUnwindContext::StreamingReporterUnwindContext():
+        hasFatalError{ false } {}
+
+    void StreamingReporterUnwindContext::onFatalErrorCondition(
+        Catch::StringRef error) {
+        hasFatalError = true;
+    }
+
+    void StreamingReporterUnwindContext::addAssertion(
+        AssertionStats const& assertionStats ) {
+        if ( hasFatalError ) {
+            auto info = assertionStats.assertionResult.getSourceInfo();
+            fatalAssertionSource = info.file;
+            fatalAssertionSource += ":";
+            fatalAssertionSource += std::to_string(info.line);
+            return;
+        }
+        allTerminatedAssertions.push_back( assertionStats );
+        allExpandedAssertionStatements.push_back(
+            assertionStats.assertionResult.getExpandedExpression() );
+        for ( auto const& info : assertionStats.infoMessages ) {
+            stdOut += "INFO: " + info.message + "\n";
+        }
+    }
+
+    bool StreamingReporterUnwindContext::unwindIsComplete() const {
+        return !allSectionStats.empty() &&
+               allSectionStats.size() == allSectionInfo.size();
+    }
+
+    void StreamingReporterUnwindContext::clear() {
+        allSectionInfo.clear();
+        allSectionStats.clear();
+        allTerminatedAssertions.clear();
+        allExpandedAssertionStatements.clear();
+    }
+
+    bool StreamingReporterUnwindContext::hasFailures() const {
+        if ( hasFatalError ) {
+            return true;
+        }
+        for ( auto const& assertion : allTerminatedAssertions ) {
+            if ( !assertion.assertionResult.isOk() ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool StreamingReporterUnwindContext::hasMessages() const {
+        return !stdOut.empty() || !stdErr.empty();
+    }
+
+    std::string StreamingReporterUnwindContext::constructFullName() const {
+        ReusableStringStream nameStream;
+        for ( size_t i = 0; i < allSectionInfo.size(); i++ ) {
+            nameStream << ( i > 0 ? " / " : "" )
+                       << getSanitizedTrxName( allSectionInfo[i].name );
+        }
+        return nameStream.str();
+    }
+
+    std::string StreamingReporterUnwindContext::constructErrorMessage() const {
+        ReusableStringStream errorMessageStream;
+        if ( !unwindIsComplete() ) {
+            errorMessageStream << 
+                "Test execution terminated unexpectedly before this test completed. Please see"
+                " redirected output for more details." << '\n';
+        }
+
+        for ( size_t i = 0; i < allTerminatedAssertions.size(); i++ ) {
+            auto&& assertionInfo = allTerminatedAssertions[i];
+            auto&& result = assertionInfo.assertionResult;
+            if ( result.getResultType() == ResultWas::ExpressionFailed ) {
+                // Here we'll write the failure and also its expanded form, if available, e.g.:
+                // REQUIRE( x == 1 ) as REQUIRE ( 2 == 1 )
+                errorMessageStream << result.getExpressionInMacro();
+                if ( allExpandedAssertionStatements[i] !=
+                     result.getExpression() ) {
+                    errorMessageStream
+                        << " as " << result.getTestMacroName() << " ( "
+                        << allExpandedAssertionStatements[i] << " ) ";
+                }
+                errorMessageStream << '\n';
+            } else if ( result.getResultType() == ResultWas::ThrewException ) {
+                errorMessageStream << "Exception: " << result.getMessage()
+                                   << '\n';
+            } else if ( !result.isOk() ) {
+                errorMessageStream << "Failed: " << result.getMessage() << '\n';
+            }
+        }
+
+        if ( hasFatalError ) {
+            errorMessageStream << "Fatal error at "
+                << fatalAssertionSource
+                << '\n';
+        }
+
+        return errorMessageStream.str();
+    }
+
+    // Emits an assertion origination message of the form:
+    //  at Catch.Module.Method() in /source/path/file.cpp:line 123
+    // Notably:
+    //  - A provided prefix (like 'C:\source\project') will be omitted
+    //  - Backslashes ('\') will be converted to forward slashes ('/')
+    // Incomplete (in progress) unwind contexts will also emit the source info of their latest
+    // started section.
+    std::string StreamingReporterUnwindContext::constructStackMessage(
+        std::string const& sourcePrefix
+    ) const {
+        ReusableStringStream stackStream;
+        for ( auto const& assertionInfo : allTerminatedAssertions ) {
+            auto&& sourceInfo = assertionInfo.assertionResult.getSourceInfo();
+            stackStream << serializeSourceInfoForStackMessage(sourceInfo, sourcePrefix);
+        }
+        if (!unwindIsComplete()) {
+            auto&& lastSection = allSectionInfo[allSectionInfo.size() - 1];
+            stackStream << serializeSourceInfoForStackMessage(lastSection.lineInfo, sourcePrefix);
+        }
+        return stackStream.str();
+    }
+
+    std::string StreamingReporterUnwindContext::constructDuration() const {
+        return nanosToDurationString( elapsedNanoseconds );
+    }
+
+    VstestEntry::VstestEntry( std::string name ):
+        name( getSanitizedTrxName( name ) ),
+        testId( get_random_not_guaranteed_unique_guid() ),
+        executionId( get_random_not_guaranteed_unique_guid() ) {}
+
+    bool VstestEntry::hasFailures() const {
+        for ( auto&& unwindContext : unwindContexts ) {
+            if ( unwindContext.hasFailures() ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::string VstestEntry::constructDuration() const {
+        auto total = 0ull;
+        for ( auto&& context : unwindContexts ) {
+            total += context.elapsedNanoseconds;
+        }
+        return nanosToDurationString( total );
+    }
+
+    VstestReporter::VstestReporter( ReporterConfig const& _config ):
+        StreamingReporterBase( _config ),
+        m_xml( Detail::make_unique<XmlWriter>( _config.stream() ) ),
+        m_emissionType( TrxEmissionType::Intermediate ),
+        m_defaultTestListId{ get_random_not_guaranteed_unique_guid() } {
+
+        m_preferences.shouldRedirectStdOut = true;
+        m_preferences.shouldReportAllAssertions = true;
+        m_config = _config.fullConfig();
+    }
+
+    //
+    // StreamingReporterBase implementation
+    //
+
+    void VstestReporter::noMatchingTestCases( std::string const& s ) {
+        StreamingReporterBase::noMatchingTestCases( s );
+    }
+
+    void VstestReporter::fatalErrorEncountered( Catch::StringRef signalName ) {
+        m_currentUnwindContext.onFatalErrorCondition( signalName );
+    }
+
+    void VstestReporter::testRunStarting( TestRunInfo const& testInfo ) {
+        StreamingReporterBase::testRunStarting( testInfo );
+    }
+
+    void VstestReporter::testGroupStarting( GroupInfo const& groupInfo ) {
+        m_runName = groupInfo.name;
+        StreamingReporterBase::testGroupStarting( groupInfo );
+    }
+
+    void VstestReporter::testCaseStarting( TestCaseInfo const& testInfo ) {
+        m_currentTestCaseTags = testInfo.tags;
+        StreamingReporterBase::testCaseStarting( testInfo );
+    }
+
+    void VstestReporter::sectionStarting( SectionInfo const& sectionInfo ) {
+        StreamingReporterBase::sectionStarting( sectionInfo );
+        if ( m_currentUnwindContext.allSectionInfo.empty() ) {
+            m_timer.start();
+            m_currentUnwindContext.startTimestamp = currentTimestamp();
+        }
+        m_currentUnwindContext.allSectionInfo.push_back( sectionInfo );
+        emitTrx();
+    }
+
+    void VstestReporter::assertionStarting( AssertionInfo const& ) {}
+
+    bool VstestReporter::assertionEnded( AssertionStats const& assertionStats ) {
+        if (!assertionStats.assertionResult.isOk()) {
+          m_currentUnwindContext.addAssertion( assertionStats );
+        }
+        return true;
+    }
+
+    void VstestReporter::sectionEnded( SectionStats const& sectionStats ) {
+        m_currentUnwindContext.allSectionStats.push_back( sectionStats );
+
+        if ( m_currentUnwindContext.unwindIsComplete() ) {
+            flushCurrentUnwindContext();
+        }
+
+        StreamingReporterBase::sectionEnded( sectionStats );
+    }
+
+    void VstestReporter::testCaseEnded( TestCaseStats const& testCaseStats ) {
+        StreamingReporterBase::testCaseEnded( testCaseStats );
+    }
+
+    void VstestReporter::testGroupEnded( TestGroupStats const& testGroupStats ) {
+        StreamingReporterBase::testGroupEnded( testGroupStats );
+    }
+
+    void VstestReporter::testRunEnded( TestRunStats const& testRunStats ) {
+        m_emissionType = TrxEmissionType::Final;
+        emitTrx();
+        StreamingReporterBase::testRunEnded( testRunStats );
+    }
+
+    //
+    // .trx emission -- see vstst.xsd for schema details
+    //
+
+    void VstestReporter::startTestRunElement() {
+        m_xml->startElement( "TestRun" );
+        m_xml->writeAttribute( "id", get_random_not_guaranteed_unique_guid() );
+        m_xml->writeAttribute( "name", m_runName );
+        m_xml->writeAttribute( "runUser", "Catch2VstestReporter" );
+        m_xml->writeAttribute(
+            "xmlns",
+            "http://microsoft.com/schemas/VisualStudio/TeamTest/2010" );
+    }
+
+    void VstestReporter::writeTimesElement() {
+        auto now = currentTimestamp();
+        auto startTime = now;
+        auto endTime = now;
+
+        if ( !m_completedTestEntries.empty() ) {
+            auto&& firstUnwind = m_completedTestEntries[0].unwindContexts[0];
+            auto&& lastEntry = m_completedTestEntries[m_completedTestEntries.size() - 1];
+            auto&& lastUnwind =
+                lastEntry.unwindContexts[lastEntry.unwindContexts.size() - 1];
+            startTime = firstUnwind.startTimestamp;
+            endTime = lastUnwind.endTimestamp;
+        }
+
+        m_xml->scopedElement( "Times" )
+            .writeAttribute( "creation", startTime )
+            .writeAttribute( "queuing", startTime )
+            .writeAttribute( "start", startTime )
+            .writeAttribute( "finish", endTime );
+    }
+
+    void VstestReporter::writeUnwindOutput(
+        StreamingReporterUnwindContext const& unwindContext ) {
+
+        const auto& inProgress =
+            m_emissionType == TrxEmissionType::Intermediate &&
+            !unwindContext.unwindIsComplete();
+
+        if ( unwindContext.hasMessages() || unwindContext.hasFailures() || inProgress) {
+            auto outputElement = m_xml->scopedElement( "Output" );
+            if ( !unwindContext.stdOut.empty() || inProgress ) {
+                m_xml->scopedElement( "StdOut" )
+                    .writeText( unwindContext.stdOut, XmlFormatting::Newline );
+            }
+            if ( !unwindContext.stdErr.empty() || inProgress ) {
+                m_xml->scopedElement( "StdErr" )
+                    .writeText( unwindContext.stdErr, XmlFormatting::Newline );
+            }
+            auto errorMessage = unwindContext.constructErrorMessage();
+            auto stackMessage =
+                unwindContext.constructStackMessage( m_config->sourcePathPrefix() );
+            if ( !errorMessage.empty() || !stackMessage.empty() ) {
+                auto errorInfoElement = m_xml->scopedElement( "ErrorInfo" );
+                if ( !errorMessage.empty() ) {
+                    m_xml->scopedElement( "Message" ).writeText( errorMessage, XmlFormatting::Newline );
+                }
+                if ( !stackMessage.empty() ) {
+                    m_xml->scopedElement( "StackTrace" )
+                        .writeText( stackMessage, XmlFormatting::Newline );
+                }
+            }
+        }
+    }
+
+    void
+    VstestReporter::startUnitTestResultElement( const std::string& executionId,
+                                                const std::string& testId,
+                                                const std::string& name ) {
+        constexpr auto g_vsTestType = "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b";
+        constexpr auto g_computerName = "localhost";
+
+        m_xml->startElement( "UnitTestResult" );
+        m_xml->writeAttribute( "executionId", executionId );
+        m_xml->writeAttribute( "testId", testId );
+        m_xml->writeAttribute( "testName", name );
+        m_xml->writeAttribute( "computerName", g_computerName );
+        m_xml->writeAttribute( "testType", g_vsTestType );
+        m_xml->writeAttribute( "testListId", m_defaultTestListId );
+    }
+
+    void VstestReporter::writeInnerResult(
+        StreamingReporterUnwindContext const& unwindContext,
+        const std::string& parentExecutionId ) {
+
+        auto isInProgress = (m_emissionType == TrxEmissionType::Intermediate)
+            && !unwindContext.unwindIsComplete();
+
+        auto name = unwindContext.constructFullName();
+        name = name.empty() ? "Unknown test" : name;
+        name = isInProgress ? name + " (in progress)" : name;
+
+        startUnitTestResultElement(
+            get_random_not_guaranteed_unique_guid(),
+            get_random_not_guaranteed_unique_guid(),
+            name );
+        m_xml->writeAttribute( "parentExecutionId", parentExecutionId );
+        m_xml->writeAttribute( "resultType", "DataDrivenDataRow" );
+        m_xml->writeAttribute( "startTime", unwindContext.startTimestamp );
+        m_xml->writeAttribute( "endTime", unwindContext.endTimestamp );
+        m_xml->writeAttribute( "duration", unwindContext.constructDuration() );
+
+        m_xml->writeAttribute(
+            "outcome",
+            unwindContext.hasFailures() || isInProgress ? "Failed" : "Passed" );
+        writeUnwindOutput( unwindContext );
+        m_xml->endElement(); // UnitTestResult
+    }
+
+    void VstestReporter::writeToplevelResult( VstestEntry const& testEntry ) {
+        startUnitTestResultElement(
+            testEntry.executionId, testEntry.testId, testEntry.name );
+
+        auto&& firstUnwind = testEntry.unwindContexts[0];
+        auto&& lastUnwind =
+            testEntry.unwindContexts[testEntry.unwindContexts.size() - 1];
+        m_xml->writeAttribute( "startTime", firstUnwind.startTimestamp );
+        m_xml->writeAttribute( "endTime", lastUnwind.endTimestamp );
+        m_xml->writeAttribute( "duration", testEntry.constructDuration() );
+        m_xml->writeAttribute( "outcome",
+                              testEntry.hasFailures() ? "Failed" : "Passed" );
+
+        if ( testEntry.unwindContexts.size() == 1 
+            && m_emissionType == TrxEmissionType::Final ) {
+            // This is a flat test (no sections/sub-results) and gets its
+            // details in the top element from its single unwind
+            writeUnwindOutput( testEntry.unwindContexts[0] );
+        } else {
+            m_xml->writeAttribute( "resultType", "DataDrivenTest" );
+
+            auto innerResultsElement = m_xml->scopedElement( "InnerResults" );
+            for ( auto const& unwindContext : testEntry.unwindContexts ) {
+                if ( unwindContext.unwindIsComplete() ) {
+                    writeInnerResult( unwindContext, testEntry.executionId );                
+                }
+            }
+
+            if ( m_emissionType == TrxEmissionType::Intermediate &&
+                 contextCouldBeInEntry( m_currentUnwindContext, testEntry ) ) {
+                writeInnerResult( m_currentUnwindContext,
+                                  testEntry.executionId );
+            }
+        }
+
+        m_xml->endElement(); // UnitTestResult
+    }
+
+    void VstestReporter::writeResults() {
+        auto resultsElement = m_xml->scopedElement( "Results" );
+        for ( auto const& testEntry : m_completedTestEntries ) {
+            writeToplevelResult( testEntry );
+        }
+
+        // If the first unwind context of a test is in progress, emit a top-level result for it.
+        // Use the chain of section names to determine if it's instead another unwind in the
+        // current test.
+        if (m_emissionType == TrxEmissionType::Intermediate
+            && !m_currentUnwindContext.unwindIsComplete()
+            && !contextCouldBeInLastEntry(m_currentUnwindContext, m_completedTestEntries)) {
+
+            auto tempEntry{
+                VstestEntry{ m_currentUnwindContext.allSectionInfo[0].name } };
+            tempEntry.unwindContexts.push_back( m_currentUnwindContext );
+            writeToplevelResult( tempEntry );
+        }
+    }
+
+    void VstestReporter::writeTestDefinitions() {
+        auto testDefinitionsElement = m_xml->scopedElement( "TestDefinitions" );
+        for ( auto const& testEntry : m_completedTestEntries ) {
+            auto unitTestElement = m_xml->scopedElement( "UnitTest" );
+            m_xml->writeAttribute( "name", testEntry.name );
+            m_xml->writeAttribute( "storage", m_runName );
+            m_xml->writeAttribute( "id", testEntry.testId );
+            if ( !testEntry.tags.empty() ) {
+                auto testCategoriesElement =
+                    m_xml->scopedElement( "TestCategory" );
+                for ( auto const& tag : testEntry.tags ) {
+                    m_xml->scopedElement( "TestCategoryItem" )
+                        .writeAttribute( "TestCategory", tag.original );
+                }
+            }
+            m_xml->scopedElement( "Execution" )
+                .writeAttribute( "id", testEntry.executionId );
+            m_xml->scopedElement( "TestMethod" )
+                .writeAttribute( "codeBase", m_runName )
+                .writeAttribute( "adapterTypeName",
+                                 "executor://mstestadapter/v2" )
+                .writeAttribute( "className", "Catch2.Test" )
+                .writeAttribute( "name", testEntry.name );
+        }
+    }
+
+    void VstestReporter::writeTestEntries() {
+        auto testEntriesElement = m_xml->scopedElement( "TestEntries" );
+        for ( auto const& testEntry : m_completedTestEntries ) {
+            m_xml->scopedElement( "TestEntry" )
+                .writeAttribute( "testId", testEntry.testId )
+                .writeAttribute( "executionId", testEntry.executionId )
+                .writeAttribute( "testListId", m_defaultTestListId );
+        }
+    }
+
+    void VstestReporter::writeTestLists() {
+        auto testListsElement = m_xml->scopedElement( "TestLists" );
+        m_xml->scopedElement( "TestList" )
+            .writeAttribute( "name", "Default test list for Catch2" )
+            .writeAttribute( "id", m_defaultTestListId );
+    }
+
+    void VstestReporter::writeSummaryElement() {
+        auto resultSummaryElement = m_xml->scopedElement( "ResultSummary" );
+
+        auto hasFailures = false;
+        for ( auto const& testEntry : m_completedTestEntries ) {
+            if ( testEntry.hasFailures() ) {
+                hasFailures = true;
+                break;
+            }
+        }
+
+        hasFailures |= m_emissionType == TrxEmissionType::Intermediate;
+
+        resultSummaryElement.writeAttribute(
+            "outcome", hasFailures ? "Failed" : "Passed" );
+
+        const auto& attachments = m_config->reportAttachmentPaths();
+        if ( !attachments.empty() ) {
+            auto resultFilesElement = m_xml->scopedElement( "ResultFiles" );
+            for ( const auto& attachmentPath : attachments ) {
+                m_xml->scopedElement( "ResultFile" ).writeAttribute( "path", attachmentPath );
+            }
+        }
+    }
+
+    void VstestReporter::emitTrx() {
+        m_xml = nullptr;
+        const_cast<Catch::IConfig*>( m_config )->resetOutputStream();
+        m_xml = Detail::make_unique<XmlWriter>( m_config->stream() );
+
+        startTestRunElement();
+        writeTimesElement();
+        writeResults();
+        writeTestDefinitions();
+        writeTestEntries();
+        writeTestLists();
+        writeSummaryElement();
+        m_xml->endElement(); // TestRun
+    }
+
+    void VstestReporter::flushCurrentUnwindContext() {
+        if ( m_currentUnwindContext.allSectionStats.empty() ) {
+            return;
+        }
+
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+        // If we're using output redirect sinks, this is the cue that everything we currently have
+        // in the redirect sink should be associated with the test we're wrapping up. Record it and
+        // reset the sinks for future tests.
+        if (m_config->standardOutputRedirect()) {
+            m_currentUnwindContext.stdOut += m_config->standardOutputRedirect()->getContents();
+            m_config->standardOutputRedirect()->reset();
+        }
+        if (m_config->standardErrorRedirect()) {
+            m_currentUnwindContext.stdErr += m_config->standardErrorRedirect()->getContents();
+            m_config->standardErrorRedirect()->reset();
+        }
+#endif
+
+        auto latestTest = [&]() {
+            return &m_completedTestEntries[m_completedTestEntries.size() - 1];
+        };
+
+        m_currentUnwindContext.elapsedNanoseconds = m_timer.getElapsedNanoseconds();
+        auto&& currentStats = m_currentUnwindContext.allSectionStats;
+        auto&& currentToplevelName = currentStats[currentStats.size() - 1].sectionInfo.name;
+        bool isUnwindFromCurrentTest = !m_completedTestEntries.empty() &&
+            latestTest()->name == getSanitizedTrxName( currentToplevelName );
+
+        if ( !isUnwindFromCurrentTest ) {
+            VstestEntry newEntry{ currentToplevelName };
+            newEntry.tags = m_currentTestCaseTags;
+            m_completedTestEntries.push_back( std::move( newEntry ) );
+        }
+
+        m_currentUnwindContext.endTimestamp = currentTimestamp();
+        latestTest()->unwindContexts.push_back( std::move( m_currentUnwindContext ) );
+
+        m_currentUnwindContext.clear();
+    }
+} // end namespace Catch
 
 
 
@@ -9369,7 +10257,7 @@ namespace Catch {
         m_xml.endElement();
     }
 
-    void XmlReporter::listReporters(std::vector<ReporterDescription> const& descriptions, IConfig const&) {
+    void XmlReporter::listReporters(std::vector<ReporterDescription> const& descriptions) {
         auto outerTag = m_xml.scopedElement("AvailableReporters");
         for (auto const& reporter : descriptions) {
             auto inner = m_xml.scopedElement("Reporter");
@@ -9382,7 +10270,7 @@ namespace Catch {
         }
     }
 
-    void XmlReporter::listTests(std::vector<TestCaseHandle> const& tests, IConfig const&) {
+    void XmlReporter::listTests(std::vector<TestCaseHandle> const& tests) {
         auto outerTag = m_xml.scopedElement("MatchingTests");
         for (auto const& test : tests) {
             auto innerTag = m_xml.scopedElement("TestCase");
@@ -9407,7 +10295,7 @@ namespace Catch {
         }
     }
 
-    void XmlReporter::listTags(std::vector<TagInfo> const& tags, IConfig const&) {
+    void XmlReporter::listTags(std::vector<TagInfo> const& tags) {
         auto outerTag = m_xml.scopedElement("TagsFromMatchingTests");
         for (auto const& tag : tags) {
             auto innerTag = m_xml.scopedElement("Tag");

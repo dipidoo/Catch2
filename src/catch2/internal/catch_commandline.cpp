@@ -127,6 +127,22 @@ namespace Catch {
                 return ParserResult::runtimeError( "Unrecognized reporter, '" + reporter + "'. Check available with --list-reporters" );
             return ParserResult::ok( ParseResultType::Matched );
         };
+        auto const setReportAttachmentPaths = [&]( std::string pathsFromCli ) {
+            std::istringstream streamOfPaths(pathsFromCli);
+            std::string currentPath;
+            while (getline(streamOfPaths, currentPath, ';')) {
+                config.reportAttachmentPaths.push_back(currentPath);
+            }
+            return ParserResult::ok( ParseResultType::Matched );
+        };
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+        auto const setStandardOutRedirect = [&]( std::string redirectFilePath ) {
+            config.standardOutputRedirect = new OutputRedirectSink(stdout, redirectFilePath);
+        };
+        auto const setStandardErrorRedirect = [&]( std::string redirectFilePath ) {
+            config.standardErrorRedirect = new OutputRedirectSink(stderr, redirectFilePath);
+        };
+#endif
 
         auto cli
             = ExeName( config.processName )
@@ -218,6 +234,20 @@ namespace Catch {
             | Opt( config.benchmarkWarmupTime, "benchmarkWarmupTime" )
                 ["--benchmark-warmup-time"]
                 ( "amount of time in milliseconds spent on warming up each test (default: 100)" )
+            | Opt (config.sourcePathPrefix, "source prefix" )
+                ["--source-path-prefix"]
+                ( "common root path to exclude from reporting of source files when present" )
+            | Opt ( setReportAttachmentPaths, "attachment paths" )
+                ["--report-attachment-paths"]
+                ( "with supported reporters, additional files to reference in the report" )
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+            | Opt ( setStandardOutRedirect, "standard output redirect file" )
+                ["--standard-out-redirect-file"]
+                ( "path to use as a temporary file for output redirection with supported reporters")
+            | Opt ( setStandardErrorRedirect, "standard error redirect file" )
+                ["--standard-error-redirect-file"]
+                ( "path to use as a temporary file for error redirection with supported reporters")
+#endif
             | Arg( config.testsOrTags, "test name|pattern|tags" )
                 ( "which test or tests to use" );
 

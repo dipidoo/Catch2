@@ -79,15 +79,27 @@ namespace Catch {
     int Config::abortAfter() const                     { return m_data.abortAfter; }
     bool Config::showInvisibles() const                { return m_data.showInvisibles; }
     Verbosity Config::verbosity() const                { return m_data.verbosity; }
-
+    std::string Config::sourcePathPrefix() const       { return m_data.sourcePathPrefix; }
+    std::vector<std::string> const& Config
+        ::reportAttachmentPaths() const                { return m_data.reportAttachmentPaths; }
     bool Config::benchmarkNoAnalysis() const                      { return m_data.benchmarkNoAnalysis; }
     int Config::benchmarkSamples() const                          { return m_data.benchmarkSamples; }
     double Config::benchmarkConfidenceInterval() const            { return m_data.benchmarkConfidenceInterval; }
     unsigned int Config::benchmarkResamples() const               { return m_data.benchmarkResamples; }
     std::chrono::milliseconds Config::benchmarkWarmupTime() const { return std::chrono::milliseconds(m_data.benchmarkWarmupTime); }
+#if defined(CATCH_CONFIG_NEW_CAPTURE)
+    OutputRedirectSink* Config
+        ::standardOutputRedirect() const               { return m_data.standardOutputRedirect; }
+    OutputRedirectSink* Config
+        ::standardErrorRedirect() const                { return m_data.standardErrorRedirect; }
+#endif
 
-    IStream const* Config::openStream() {
+    IStream* Config::openStream() {
         return Catch::makeStream(m_data.outputFilename);
+    }
+
+    void Config::resetOutputStream() {
+        m_stream.reset( Catch::makeStream( m_data.outputFilename ) );
     }
 
 } // end namespace Catch

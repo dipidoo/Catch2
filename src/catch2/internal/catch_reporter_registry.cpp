@@ -15,6 +15,7 @@
 #include <catch2/reporters/catch_reporter_sonarqube.hpp>
 #include <catch2/reporters/catch_reporter_tap.hpp>
 #include <catch2/reporters/catch_reporter_teamcity.hpp>
+#include <catch2/reporters/catch_reporter_vstest.hpp>
 #include <catch2/reporters/catch_reporter_xml.hpp>
 
 namespace Catch {
@@ -29,6 +30,7 @@ namespace Catch {
         m_factories["sonarqube"] = Detail::make_unique<ReporterFactory<SonarQubeReporter>>();
         m_factories["tap"] = Detail::make_unique<ReporterFactory<TAPReporter>>();
         m_factories["teamcity"] = Detail::make_unique<ReporterFactory<TeamCityReporter>>();
+        m_factories["vstest"] = Detail::make_unique<ReporterFactory<VstestReporter>>();
         m_factories["xml"] = Detail::make_unique<ReporterFactory<XmlReporter>>();
     }
 

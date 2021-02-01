@@ -33,6 +33,7 @@
 #include <catch2/reporters/catch_reporter_streaming_base.hpp>
 #include <catch2/reporters/catch_reporter_tap.hpp>
 #include <catch2/reporters/catch_reporter_teamcity.hpp>
+#include <catch2/reporters/catch_reporter_vstest.hpp>
 #include <catch2/reporters/catch_reporter_xml.hpp>
 
 #endif // CATCH_REPORTERS_ALL_HPP_INCLUDED

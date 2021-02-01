@@ -52,6 +52,15 @@ namespace Catch {
         std::string outputFilename;
         std::string name;
         std::string processName;
+
+        std::string sourcePathPrefix;
+        std::vector<std::string> reportAttachmentPaths;
+
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+        OutputRedirectSink* standardOutputRedirect { nullptr };
+        OutputRedirectSink* standardErrorRedirect { nullptr };
+#endif
+
 #ifndef CATCH_CONFIG_DEFAULT_REPORTER
 #define CATCH_CONFIG_DEFAULT_REPORTER "console"
 #endif
@@ -90,6 +99,7 @@ namespace Catch {
         // IConfig interface
         bool allowThrows() const override;
         std::ostream& stream() const override;
+        void resetOutputStream() override;
         std::string name() const override;
         bool includeSuccessfulResults() const override;
         bool warnAboutMissingAssertions() const override;
@@ -103,18 +113,25 @@ namespace Catch {
         int abortAfter() const override;
         bool showInvisibles() const override;
         Verbosity verbosity() const override;
+        std::string sourcePathPrefix() const override;
+        std::vector<std::string> const& reportAttachmentPaths() const override;
         bool benchmarkNoAnalysis() const override;
         int benchmarkSamples() const override;
         double benchmarkConfidenceInterval() const override;
         unsigned int benchmarkResamples() const override;
         std::chrono::milliseconds benchmarkWarmupTime() const override;
 
+#ifdef CATCH_CONFIG_NEW_CAPTURE
+        OutputRedirectSink* standardOutputRedirect() const override;
+        OutputRedirectSink* standardErrorRedirect() const override;
+#endif
+
     private:
 
-        IStream const* openStream();
+        IStream* openStream();
         ConfigData m_data;
 
-        Detail::unique_ptr<IStream const> m_stream;
+        Detail::unique_ptr<IStream> m_stream;
         TestSpec m_testSpec;
         bool m_hasTestFilters = false;
     };

@@ -213,6 +213,7 @@ set(REPORTER_HEADERS
     ${SOURCES_DIR}/reporters/catch_reporter_streaming_base.hpp
     ${SOURCES_DIR}/reporters/catch_reporter_tap.hpp
     ${SOURCES_DIR}/reporters/catch_reporter_teamcity.hpp
+    ${SOURCES_DIR}/reporters/catch_reporter_vstest.hpp
     ${SOURCES_DIR}/reporters/catch_reporter_xml.hpp
 )
 set(REPORTER_SOURCES
@@ -227,6 +228,7 @@ set(REPORTER_SOURCES
     ${SOURCES_DIR}/reporters/catch_reporter_streaming_base.cpp
     ${SOURCES_DIR}/reporters/catch_reporter_tap.cpp
     ${SOURCES_DIR}/reporters/catch_reporter_teamcity.cpp
+    ${SOURCES_DIR}/reporters/catch_reporter_vstest.cpp
     ${SOURCES_DIR}/reporters/catch_reporter_xml.cpp
 )
 set(REPORTER_FILES ${REPORTER_HEADERS} ${REPORTER_SOURCES})

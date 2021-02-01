@@ -27,7 +27,7 @@ namespace Catch {
         virtual std::ostream& stream() const = 0;
     };
 
-    auto makeStream( StringRef const &filename ) -> IStream const*;
+    auto makeStream( StringRef const &filename ) -> IStream*;
 
     class ReusableStringStream : Detail::NonCopyable {
         std::size_t m_index;
