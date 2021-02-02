@@ -145,7 +145,7 @@ namespace Catch {
     {
         // Disable buffering for the redirection stream -- this will persist even after the
         // redirection completes!
-        setbuf( redirectionSource, NULL );
+        setvbuf( redirectionSource, NULL, _IONBF, 0 );
 
         m_originalSourceDescriptor = fileno( redirectionSource );
         m_originalSourceCopyDescriptor = dup( m_originalSourceDescriptor );

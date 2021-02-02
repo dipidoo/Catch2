@@ -154,8 +154,7 @@ namespace Catch {
     StreamingReporterUnwindContext::StreamingReporterUnwindContext():
         hasFatalError{ false } {}
 
-    void StreamingReporterUnwindContext::onFatalErrorCondition(
-        Catch::StringRef error) {
+    void StreamingReporterUnwindContext::onFatalErrorCondition(Catch::StringRef) {
         hasFatalError = true;
     }
 
