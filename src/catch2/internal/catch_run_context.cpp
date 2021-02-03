@@ -471,6 +471,7 @@ namespace Catch {
         // before running the tests themselves, or the binary can crash
         // without failed test being reported.
         FatalConditionHandler _;
+        (void)_; // suppress "unused" warnings
         m_activeTestCase->invoke();
     }
 

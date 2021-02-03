@@ -97,6 +97,7 @@ namespace Catch {
 #else
     TempFile::TempFile(std::string filePath) {
         m_filePath = filePath;
+        reopen();
     }
 
     void TempFile::reopen() {
