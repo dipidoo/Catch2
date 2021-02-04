@@ -59,18 +59,9 @@ namespace Catch {
 
 #if defined(CATCH_CONFIG_NEW_CAPTURE)
 
-#if defined(_MSC_VER)
-    TempFile::TempFile(std::string filePath) {
-        if ( !filePath.empty() ) {
-            const auto arraySize = sizeof( m_buffer ) / sizeof( m_buffer[0] );
-            if ( filePath.copy( m_buffer, arraySize ) != filePath.length() ) {
-                CATCH_RUNTIME_ERROR(
-                    "Provided temporary file path was too long to copy" );
-            }
-        }
-        else if (tmpnam_s(m_buffer)) {
-            CATCH_RUNTIME_ERROR("Could not get a temp filename");
-        }
+    TempFile::TempFile(std::string filePath):
+        m_filePath{ filePath },
+        m_shouldAutomaticallyDelete{ false } {
 
         reopen();
     }
@@ -80,47 +71,34 @@ namespace Catch {
             fclose( m_file );
             m_file = nullptr;
         }
-        if ( fopen_s( &m_file, m_buffer, "w+" ) ) {
-            char buffer[100];
-            if ( strerror_s( buffer, errno ) ) {
-                CATCH_RUNTIME_ERROR( "Could not translate errno to a string" );
+        if ( !m_filePath.empty() ) {
+            m_file = std::fopen( m_filePath.c_str(), "w+" );
+        } else {
+            #if defined( _MSC_VER )
+            char tempNameBuffer[L_tmpnam_s];
+            if ( tmpnam_s( tempNameBuffer ) ) {
+                CATCH_RUNTIME_ERROR( "Failed to acquire a temporary file name." );
             }
-            CATCH_RUNTIME_ERROR( "Could not open the temp file: '"
-                                 << m_buffer << "' because: " << buffer );
+            m_file = std::fopen( tempNameBuffer, "w+" );
+            m_filePath = tempNameBuffer;
+            m_shouldAutomaticallyDelete = true;
+            #else
+            m_file = std::tmpfile();
+            #endif
+        }
+    }
+
+    TempFile::~TempFile() {
+        // TBD: What to do about errors here?
+        std::fclose(m_file);
+
+        if (m_shouldAutomaticallyDelete) {
+            std::remove(m_filePath.c_str());
         }
     }
 
     std::string TempFile::getPath() {
-        return m_buffer;
-    }
-
-#else
-    TempFile::TempFile(std::string filePath) {
-        m_filePath = filePath;
-        reopen();
-    }
-
-    void TempFile::reopen() {
-        if ( m_file ) {
-            std::fclose( m_file );
-            m_file = nullptr;
-        }
-        m_file = m_filePath.empty() ? std::tmpfile() : std::fopen( m_filePath.c_str(), "w+" );
-        if (!m_file) {
-            CATCH_RUNTIME_ERROR("Could not create a temp file.");
-        }
-    }
-
-#endif
-
-    TempFile::~TempFile() {
-         // TBD: What to do about errors here?
-         std::fclose(m_file);
-         // We manually create the file on Windows only, on Linux
-         // it will be autodeleted
-#if defined(_MSC_VER)
-         std::remove(m_buffer);
-#endif
+        return m_filePath;
     }
 
     FILE* TempFile::getFile() {

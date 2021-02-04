@@ -100,6 +100,7 @@ namespace Catch {
         std::vector<VstestEntry> m_completedTestEntries;
         StreamingReporterUnwindContext m_currentUnwindContext;
         bool m_handlingFatalSignal;
+        bool m_doIncrementalXmlOutput;
 
     public:
         VstestReporter( ReporterConfig const& _config );

@@ -86,11 +86,8 @@ namespace Catch {
 
     private:
         std::FILE* m_file = nullptr;
-    #if defined(_MSC_VER)
-        char m_buffer[L_tmpnam] = { 0 };
-    #else
         std::string m_filePath;
-    #endif
+        bool m_shouldAutomaticallyDelete;
     };
 
     class OutputRedirectSink {

@@ -245,7 +245,7 @@ namespace Catch {
                 ["--standard-out-redirect-file"]
                 ( "path to use as a temporary file for output redirection with supported reporters")
             | Opt ( setStandardErrorRedirect, "standard error redirect file" )
-                ["--standard-error-redirect-file"]
+                ["--standard-err-redirect-file"]
                 ( "path to use as a temporary file for error redirection with supported reporters")
 #endif
             | Arg( config.testsOrTags, "test name|pattern|tags" )

@@ -17,6 +17,7 @@
 #include <cassert>
 #include <chrono>
 #include <ctime>
+#include <iomanip>
 #include <random>
 #include <sstream>
 
@@ -58,19 +59,28 @@ namespace Catch {
         }
 
         std::string nanosToDurationString( unsigned long long nanos ) {
+            auto totalHns = nanos / 100;
             auto totalSeconds = nanos / 1000000000;
             auto totalMinutes = totalSeconds / 60;
             auto totalHours = totalMinutes / 60;
-            constexpr auto bufferSize = sizeof( "hh:mm:ss.1234567" );
-            char buffer[bufferSize];
-            std::snprintf( buffer,
-                           bufferSize,
-                           "%02llu:%02llu:%02llu.%07llu",
-                           std::min( totalHours, 99ull ),
-                           totalMinutes % 60,
-                           totalSeconds % 60,
-                           ( nanos / 100 ) % 10000000 );
-            return std::string( buffer );
+            ReusableStringStream resultStream;
+            resultStream
+                << std::setfill('0') << std::setw(2) << totalHours % 60 << ":"
+                << std::setfill('0') << std::setw(2) << totalMinutes % 60 << ":"
+                << std::setfill('0') << std::setw(2) << totalSeconds % 60 << "."
+                << std::setfill('0') << std::setw(-7) << totalHns % 10000000;
+
+            // constexpr auto bufferSize = sizeof( "hh:mm:ss.1234567" );
+            // char buffer[bufferSize];
+            // std::snprintf( buffer,
+            //                bufferSize,
+            //                "%02llu:%02llu:%02llu.%07llu",
+            //                std::min( totalHours, 99ull ),
+            //                totalMinutes % 60,
+            //                totalSeconds % 60,
+            //                totalHns % 10000000 );
+            // return std::string( buffer );
+            return resultStream.str();
         }
 
         // Some consumers of output .trx files (e.g. Azure DevOps Pipelines) fail to ingest results
@@ -300,14 +310,17 @@ namespace Catch {
     }
 
     VstestReporter::VstestReporter( ReporterConfig const& _config ):
-        StreamingReporterBase( _config ),
-        m_xml( Detail::make_unique<XmlWriter>( _config.stream() ) ),
-        m_emissionType( TrxEmissionType::Intermediate ),
-        m_defaultTestListId{ get_random_not_guaranteed_unique_guid() } {
+        StreamingReporterBase{ _config },
+        m_xml{ nullptr },
+        m_emissionType{ TrxEmissionType::Intermediate },
+        m_defaultTestListId{ get_random_not_guaranteed_unique_guid() },
+        m_doIncrementalXmlOutput{ false } {
 
         m_preferences.shouldRedirectStdOut = true;
         m_preferences.shouldReportAllAssertions = true;
         m_config = _config.fullConfig();
+        m_doIncrementalXmlOutput = m_config->standardOutputRedirect() ||
+                                   m_config->standardErrorRedirect();
     }
 
     //
@@ -343,7 +356,10 @@ namespace Catch {
             m_currentUnwindContext.startTimestamp = currentTimestamp();
         }
         m_currentUnwindContext.allSectionInfo.push_back( sectionInfo );
-        emitTrx();
+
+        if ( m_doIncrementalXmlOutput ) {
+            emitTrx();        
+        }
     }
 
     void VstestReporter::assertionStarting( AssertionInfo const& ) {}
@@ -618,8 +634,10 @@ namespace Catch {
     }
 
     void VstestReporter::emitTrx() {
-        m_xml = nullptr;
-        const_cast<Catch::IConfig*>( m_config )->resetOutputStream();
+        if ( m_xml ) {
+            m_xml = nullptr;
+            const_cast<Catch::IConfig*>( m_config )->resetOutputStream();
+        }
         m_xml = Detail::make_unique<XmlWriter>( m_config->stream() );
 
         startTestRunElement();
