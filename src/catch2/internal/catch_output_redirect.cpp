@@ -72,19 +72,27 @@ namespace Catch {
             m_file = nullptr;
         }
         if ( !m_filePath.empty() ) {
+#ifdef _MSC_VER
+            if ( fopen_s( &m_file, m_filePath.c_str(), "w+" ) ) {
+                CATCH_RUNTIME_ERROR( "Failed to open file: " << m_filePath.c_str() );
+            }
+#else
             m_file = std::fopen( m_filePath.c_str(), "w+" );
+#endif
         } else {
-            #if defined( _MSC_VER )
+#ifdef _MSC_VER
             char tempNameBuffer[L_tmpnam_s];
             if ( tmpnam_s( tempNameBuffer ) ) {
                 CATCH_RUNTIME_ERROR( "Failed to acquire a temporary file name." );
             }
-            m_file = std::fopen( tempNameBuffer, "w+" );
             m_filePath = tempNameBuffer;
+            if ( fopen_s( &m_file, m_filePath.c_str(), "w+" ) ) {
+                CATCH_RUNTIME_ERROR( "Failed to open file: " << m_filePath.c_str() );
+            }
             m_shouldAutomaticallyDelete = true;
-            #else
+#else
             m_file = std::tmpfile();
-            #endif
+#endif
         }
     }
 
@@ -128,11 +136,11 @@ namespace Catch {
 
         m_originalSourceDescriptor = fileno( redirectionSource );
         m_originalSourceCopyDescriptor = dup( m_originalSourceDescriptor );
-        dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
+        (void)dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
     }
 
     OutputRedirectSink::~OutputRedirectSink() {
-        dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
+        (void)dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
     }
 
     std::string OutputRedirectSink::getContents() {
@@ -141,9 +149,9 @@ namespace Catch {
     }
 
     void OutputRedirectSink::reset() {
-        dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
+        (void)dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
         m_tempFile.reopen();
-        dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
+        (void)dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
     }
 
     OutputRedirect::OutputRedirect(std::string& stdout_dest, std::string& stderr_dest) :
