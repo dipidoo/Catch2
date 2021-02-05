@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: BSL-1.0
 
 //  Catch v3.0.0-preview.3
-//  Generated: 2021-02-01 14:43:02.313227
+//  Generated: 2021-02-05 13:50:36.301412
 //  ----------------------------------------------------------
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
@@ -250,11 +250,8 @@ namespace Catch {
 
     private:
         std::FILE* m_file = nullptr;
-    #if defined(_MSC_VER)
-        char m_buffer[L_tmpnam] = { 0 };
-    #else
         std::string m_filePath;
-    #endif
+        bool m_shouldAutomaticallyDelete;
     };
 
     class OutputRedirectSink {
@@ -5802,13 +5799,13 @@ namespace Catch {
     CATCH_INTERNAL_START_WARNINGS_SUPPRESSION \
     CATCH_INTERNAL_SUPPRESS_UNUSED_VARIABLE_WARNINGS \
     if( Catch::Section const& INTERNAL_CATCH_UNIQUE_NAME( catch_internal_Section ) = Catch::SectionInfo( CATCH_INTERNAL_LINEINFO, __VA_ARGS__ ) ) \
-    CATCH_INTERNAL_STOP_WARNINGS_SUPPRESSION
+        CATCH_INTERNAL_STOP_WARNINGS_SUPPRESSION \
 
 #define INTERNAL_CATCH_DYNAMIC_SECTION( ... ) \
     CATCH_INTERNAL_START_WARNINGS_SUPPRESSION \
     CATCH_INTERNAL_SUPPRESS_UNUSED_VARIABLE_WARNINGS \
     if( Catch::Section const& INTERNAL_CATCH_UNIQUE_NAME( catch_internal_Section ) = Catch::SectionInfo( CATCH_INTERNAL_LINEINFO, (Catch::ReusableStringStream() << __VA_ARGS__).str() ) ) \
-    CATCH_INTERNAL_STOP_WARNINGS_SUPPRESSION
+        CATCH_INTERNAL_STOP_WARNINGS_SUPPRESSION \
 
 #endif // CATCH_SECTION_HPP_INCLUDED
 
@@ -11305,6 +11302,7 @@ namespace Catch {
         std::vector<VstestEntry> m_completedTestEntries;
         StreamingReporterUnwindContext m_currentUnwindContext;
         bool m_handlingFatalSignal;
+        bool m_doIncrementalXmlOutput;
 
     public:
         VstestReporter( ReporterConfig const& _config );

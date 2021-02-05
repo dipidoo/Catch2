@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: BSL-1.0
 
 //  Catch v3.0.0-preview.3
-//  Generated: 2021-02-01 14:43:02.365170
+//  Generated: 2021-02-05 13:50:36.348447
 //  ----------------------------------------------------------
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
@@ -3001,7 +3001,7 @@ namespace Catch {
                 ["--standard-out-redirect-file"]
                 ( "path to use as a temporary file for output redirection with supported reporters")
             | Opt ( setStandardErrorRedirect, "standard error redirect file" )
-                ["--standard-error-redirect-file"]
+                ["--standard-err-redirect-file"]
                 ( "path to use as a temporary file for error redirection with supported reporters")
 #endif
             | Arg( config.testsOrTags, "test name|pattern|tags" )
@@ -3925,18 +3925,9 @@ namespace Catch {
 
 #if defined(CATCH_CONFIG_NEW_CAPTURE)
 
-#if defined(_MSC_VER)
-    TempFile::TempFile(std::string filePath) {
-        if ( !filePath.empty() ) {
-            const auto arraySize = sizeof( m_buffer ) / sizeof( m_buffer[0] );
-            if ( filePath.copy( m_buffer, arraySize ) != filePath.length() ) {
-                CATCH_RUNTIME_ERROR(
-                    "Provided temporary file path was too long to copy" );
-            }
-        }
-        else if (tmpnam_s(m_buffer)) {
-            CATCH_RUNTIME_ERROR("Could not get a temp filename");
-        }
+    TempFile::TempFile(std::string filePath):
+        m_filePath{ filePath },
+        m_shouldAutomaticallyDelete{ false } {
 
         reopen();
     }
@@ -3946,46 +3937,42 @@ namespace Catch {
             fclose( m_file );
             m_file = nullptr;
         }
-        if ( fopen_s( &m_file, m_buffer, "w+" ) ) {
-            char buffer[100];
-            if ( strerror_s( buffer, errno ) ) {
-                CATCH_RUNTIME_ERROR( "Could not translate errno to a string" );
+        if ( !m_filePath.empty() ) {
+#ifdef _MSC_VER
+            if ( fopen_s( &m_file, m_filePath.c_str(), "w+" ) ) {
+                CATCH_RUNTIME_ERROR( "Failed to open file: " << m_filePath.c_str() );
             }
-            CATCH_RUNTIME_ERROR( "Could not open the temp file: '"
-                                 << m_buffer << "' because: " << buffer );
+#else
+            m_file = std::fopen( m_filePath.c_str(), "w+" );
+#endif
+        } else {
+#ifdef _MSC_VER
+            char tempNameBuffer[L_tmpnam_s];
+            if ( tmpnam_s( tempNameBuffer ) ) {
+                CATCH_RUNTIME_ERROR( "Failed to acquire a temporary file name." );
+            }
+            m_filePath = tempNameBuffer;
+            if ( fopen_s( &m_file, m_filePath.c_str(), "w+" ) ) {
+                CATCH_RUNTIME_ERROR( "Failed to open file: " << m_filePath.c_str() );
+            }
+            m_shouldAutomaticallyDelete = true;
+#else
+            m_file = std::tmpfile();
+#endif
+        }
+    }
+
+    TempFile::~TempFile() {
+        // TBD: What to do about errors here?
+        std::fclose(m_file);
+
+        if (m_shouldAutomaticallyDelete) {
+            std::remove(m_filePath.c_str());
         }
     }
 
     std::string TempFile::getPath() {
-        return m_buffer;
-    }
-
-#else
-    TempFile::TempFile(std::string filePath) {
-        m_filePath = filePath;
-    }
-
-    void TempFile::reopen() {
-        if ( m_file ) {
-            std::fclose( m_file );
-            m_file = nullptr;
-        }
-        m_file = m_filePath.empty() ? std::tmpfile() : std::fopen( m_filePath.c_str(), "w+" );
-        if (!m_file) {
-            CATCH_RUNTIME_ERROR("Could not create a temp file.");
-        }
-    }
-
-#endif
-
-    TempFile::~TempFile() {
-         // TBD: What to do about errors here?
-         std::fclose(m_file);
-         // We manually create the file on Windows only, on Linux
-         // it will be autodeleted
-#if defined(_MSC_VER)
-         std::remove(m_buffer);
-#endif
+        return m_filePath;
     }
 
     FILE* TempFile::getFile() {
@@ -4011,15 +3998,15 @@ namespace Catch {
     {
         // Disable buffering for the redirection stream -- this will persist even after the
         // redirection completes!
-        setbuf( redirectionSource, NULL );
+        setvbuf( redirectionSource, NULL, _IONBF, 0 );
 
         m_originalSourceDescriptor = fileno( redirectionSource );
         m_originalSourceCopyDescriptor = dup( m_originalSourceDescriptor );
-        dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
+        (void)dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
     }
 
     OutputRedirectSink::~OutputRedirectSink() {
-        dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
+        (void)dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
     }
 
     std::string OutputRedirectSink::getContents() {
@@ -4028,9 +4015,9 @@ namespace Catch {
     }
 
     void OutputRedirectSink::reset() {
-        dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
+        (void)dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
         m_tempFile.reopen();
-        dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
+        (void)dup2( fileno( m_tempFile.getFile() ), m_originalSourceDescriptor );
     }
 
     OutputRedirect::OutputRedirect(std::string& stdout_dest, std::string& stderr_dest) :
@@ -4647,6 +4634,7 @@ namespace Catch {
         // before running the tests themselves, or the binary can crash
         // without failed test being reported.
         FatalConditionHandler _;
+        (void)_; // suppress "unused" warnings
         m_activeTestCase->invoke();
     }
 
@@ -9339,6 +9327,7 @@ namespace Catch {
 #include <cassert>
 #include <chrono>
 #include <ctime>
+#include <iomanip>
 #include <random>
 #include <sstream>
 
@@ -9380,19 +9369,28 @@ namespace Catch {
         }
 
         std::string nanosToDurationString( unsigned long long nanos ) {
+            auto totalHns = nanos / 100;
             auto totalSeconds = nanos / 1000000000;
             auto totalMinutes = totalSeconds / 60;
             auto totalHours = totalMinutes / 60;
-            constexpr auto bufferSize = sizeof( "hh:mm:ss.1234567" );
-            char buffer[bufferSize];
-            std::snprintf( buffer,
-                           bufferSize,
-                           "%02llu:%02llu:%02llu.%07llu",
-                           std::min( totalHours, 99ull ),
-                           totalMinutes % 60,
-                           totalSeconds % 60,
-                           ( nanos / 100 ) % 10000000 );
-            return std::string( buffer );
+            ReusableStringStream resultStream;
+            resultStream
+                << std::setfill('0') << std::setw(2) << totalHours % 60 << ":"
+                << std::setfill('0') << std::setw(2) << totalMinutes % 60 << ":"
+                << std::setfill('0') << std::setw(2) << totalSeconds % 60 << "."
+                << std::setfill('0') << std::setw(-7) << totalHns % 10000000;
+
+            // constexpr auto bufferSize = sizeof( "hh:mm:ss.1234567" );
+            // char buffer[bufferSize];
+            // std::snprintf( buffer,
+            //                bufferSize,
+            //                "%02llu:%02llu:%02llu.%07llu",
+            //                std::min( totalHours, 99ull ),
+            //                totalMinutes % 60,
+            //                totalSeconds % 60,
+            //                totalHns % 10000000 );
+            // return std::string( buffer );
+            return resultStream.str();
         }
 
         // Some consumers of output .trx files (e.g. Azure DevOps Pipelines) fail to ingest results
@@ -9476,8 +9474,7 @@ namespace Catch {
     StreamingReporterUnwindContext::StreamingReporterUnwindContext():
         hasFatalError{ false } {}
 
-    void StreamingReporterUnwindContext::onFatalErrorCondition(
-        Catch::StringRef error) {
+    void StreamingReporterUnwindContext::onFatalErrorCondition(Catch::StringRef) {
         hasFatalError = true;
     }
 
@@ -9623,14 +9620,17 @@ namespace Catch {
     }
 
     VstestReporter::VstestReporter( ReporterConfig const& _config ):
-        StreamingReporterBase( _config ),
-        m_xml( Detail::make_unique<XmlWriter>( _config.stream() ) ),
-        m_emissionType( TrxEmissionType::Intermediate ),
-        m_defaultTestListId{ get_random_not_guaranteed_unique_guid() } {
+        StreamingReporterBase{ _config },
+        m_xml{ nullptr },
+        m_emissionType{ TrxEmissionType::Intermediate },
+        m_defaultTestListId{ get_random_not_guaranteed_unique_guid() },
+        m_doIncrementalXmlOutput{ false } {
 
         m_preferences.shouldRedirectStdOut = true;
         m_preferences.shouldReportAllAssertions = true;
         m_config = _config.fullConfig();
+        m_doIncrementalXmlOutput = m_config->standardOutputRedirect() ||
+                                   m_config->standardErrorRedirect();
     }
 
     //
@@ -9666,7 +9666,10 @@ namespace Catch {
             m_currentUnwindContext.startTimestamp = currentTimestamp();
         }
         m_currentUnwindContext.allSectionInfo.push_back( sectionInfo );
-        emitTrx();
+
+        if ( m_doIncrementalXmlOutput ) {
+            emitTrx();        
+        }
     }
 
     void VstestReporter::assertionStarting( AssertionInfo const& ) {}
@@ -9941,8 +9944,10 @@ namespace Catch {
     }
 
     void VstestReporter::emitTrx() {
-        m_xml = nullptr;
-        const_cast<Catch::IConfig*>( m_config )->resetOutputStream();
+        if ( m_xml ) {
+            m_xml = nullptr;
+            const_cast<Catch::IConfig*>( m_config )->resetOutputStream();
+        }
         m_xml = Detail::make_unique<XmlWriter>( m_config->stream() );
 
         startTestRunElement();
