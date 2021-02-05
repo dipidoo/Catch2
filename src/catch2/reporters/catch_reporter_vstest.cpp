@@ -514,11 +514,12 @@ namespace Catch {
         auto&& firstUnwind = testEntry.unwindContexts[0];
         auto&& lastUnwind =
             testEntry.unwindContexts[testEntry.unwindContexts.size() - 1];
+        auto isIntermediate = m_emissionType == TrxEmissionType::Intermediate;
         m_xml->writeAttribute( "startTime", firstUnwind.startTimestamp );
         m_xml->writeAttribute( "endTime", lastUnwind.endTimestamp );
         m_xml->writeAttribute( "duration", testEntry.constructDuration() );
         m_xml->writeAttribute( "outcome",
-                              testEntry.hasFailures() ? "Failed" : "Passed" );
+                              testEntry.hasFailures() || isIntermediate ? "Failed" : "Passed" );
 
         if ( testEntry.unwindContexts.size() == 1 
             && m_emissionType == TrxEmissionType::Final ) {
