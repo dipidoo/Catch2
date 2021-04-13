@@ -26,7 +26,7 @@ Ongoing development happens in the `devel` branch for Catch2 v3, and in
 
 Commits should be small and atomic. A commit is atomic when, after it is
 applied, the codebase, tests and all, still works as expected. Small
-commits are also prefered, as they make later operations with git history,
+commits are also preferred, as they make later operations with git history,
 whether it is bisecting, reverting, or something else, easier.
 
 _When submitting a pull request please do not include changes to the
@@ -147,9 +147,9 @@ be replaced with the actual version upon release. There are 2 styles
 of placeholders used through the documentation, you should pick one that
 fits your text better (if in doubt, take a look at the existing version
 tags for other features).
-  * `> [Introduced](link-to-issue-or-PR) in Catch X.Y.Z` - this
+  * `> [Introduced](link-to-issue-or-PR) in Catch2 X.Y.Z` - this
   placeholder is usually used after a section heading
-  * `> X (Y and Z) was [introduced](link-to-issue-or-PR) in Catch X.Y.Z`
+  * `> X (Y and Z) was [introduced](link-to-issue-or-PR) in Catch2 X.Y.Z`
   - this placeholder is used when you need to tag a subpart of something,
   e.g. a list
 
