@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: BSL-1.0
 
 //  Catch v3.0.0-preview.3
-//  Generated: 2021-02-05 13:50:36.301412
+//  Generated: 2021-04-14 18:54:06.602972
 //  ----------------------------------------------------------
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
@@ -120,6 +120,7 @@ namespace Catch {
 #include <iosfwd>
 #include <cstddef>
 #include <ostream>
+#include <string>
 
 namespace Catch {
 
@@ -127,14 +128,12 @@ namespace Catch {
     std::ostream& cerr();
     std::ostream& clog();
 
-    class StringRef;
-
     struct IStream {
         virtual ~IStream();
         virtual std::ostream& stream() const = 0;
     };
 
-    auto makeStream( StringRef const &filename ) -> IStream*;
+    auto makeStream( std::string const& filename ) -> IStream const*;
 
     class ReusableStringStream : Detail::NonCopyable {
         std::size_t m_index;
@@ -347,7 +346,7 @@ namespace Catch {
 
         virtual bool allowThrows() const = 0;
         virtual std::ostream& stream() const = 0;
-        virtual void resetOutputStream() = 0;
+        virtual std::string outputFilename() const = 0;
         virtual std::string name() const = 0;
         virtual bool includeSuccessfulResults() const = 0;
         virtual bool shouldDebugBreak() const = 0;
@@ -449,44 +448,8 @@ namespace Catch {
 #ifndef CATCH_SOURCE_LINE_INFO_HPP_INCLUDED
 #define CATCH_SOURCE_LINE_INFO_HPP_INCLUDED
 
-
-
-
-/** \file
- * Wrapper for the CONFIG configuration option
- *
- * When generating internal unique names, there are two options. Either
- * we mix in the current line number, or mix in an incrementing number.
- * We prefer the latter, using `__COUNTER__`, but users might want to
- * use the former.
- */
-
-#ifndef CATCH_CONFIG_COUNTER_HPP_INCLUDED
-#define CATCH_CONFIG_COUNTER_HPP_INCLUDED
-
-#if ( !defined(__JETBRAINS_IDE__) || __JETBRAINS_IDE__ >= 20170300L )
-    #define CATCH_INTERNAL_CONFIG_COUNTER
-#endif
-
-#if defined( CATCH_INTERNAL_CONFIG_COUNTER ) && \
-    !defined( CATCH_CONFIG_NO_COUNTER ) && \
-    !defined( CATCH_CONFIG_COUNTER )
-#    define CATCH_CONFIG_COUNTER
-#endif
-
-
-#endif // CATCH_CONFIG_COUNTER_HPP_INCLUDED
-
 #include <cstddef>
 #include <iosfwd>
-
-#define INTERNAL_CATCH_UNIQUE_NAME_LINE2( name, line ) name##line
-#define INTERNAL_CATCH_UNIQUE_NAME_LINE( name, line ) INTERNAL_CATCH_UNIQUE_NAME_LINE2( name, line )
-#ifdef CATCH_CONFIG_COUNTER
-#  define INTERNAL_CATCH_UNIQUE_NAME( name ) INTERNAL_CATCH_UNIQUE_NAME_LINE( name, __COUNTER__ )
-#else
-#  define INTERNAL_CATCH_UNIQUE_NAME( name ) INTERNAL_CATCH_UNIQUE_NAME_LINE( name, __LINE__ )
-#endif
 
 // We need a dummy global operator<< so we can bring it into Catch namespace later
 struct Catch_global_namespace_dummy {};
@@ -588,10 +551,6 @@ namespace Catch {
             return m_size;
         }
 
-        // Returns the current start pointer. If the StringRef is not
-        // null-terminated, throws std::domain_exception
-        auto c_str() const -> char const*;
-
     public: // substrings and searches
         // Returns a substring of [start, start + length).
         // If start + length > size(), then the substring is [start, start + size()).
@@ -608,10 +567,6 @@ namespace Catch {
         // Returns the current start pointer. May not be null-terminated.
         constexpr char const* data() const noexcept {
             return m_start;
-        }
-
-        constexpr auto isNullTerminated() const noexcept -> bool {
-            return m_start[m_size] == '\0';
         }
 
     public: // iterators
@@ -1356,6 +1311,47 @@ namespace Catch {
 } // end namespace Catch
 
 #endif // CATCH_INTERFACES_REPORTER_HPP_INCLUDED
+
+
+#ifndef CATCH_UNIQUE_NAME_HPP_INCLUDED
+#define CATCH_UNIQUE_NAME_HPP_INCLUDED
+
+
+
+
+/** \file
+ * Wrapper for the CONFIG configuration option
+ *
+ * When generating internal unique names, there are two options. Either
+ * we mix in the current line number, or mix in an incrementing number.
+ * We prefer the latter, using `__COUNTER__`, but users might want to
+ * use the former.
+ */
+
+#ifndef CATCH_CONFIG_COUNTER_HPP_INCLUDED
+#define CATCH_CONFIG_COUNTER_HPP_INCLUDED
+
+#if ( !defined(__JETBRAINS_IDE__) || __JETBRAINS_IDE__ >= 20170300L )
+    #define CATCH_INTERNAL_CONFIG_COUNTER
+#endif
+
+#if defined( CATCH_INTERNAL_CONFIG_COUNTER ) && \
+    !defined( CATCH_CONFIG_NO_COUNTER ) && \
+    !defined( CATCH_CONFIG_COUNTER )
+#    define CATCH_CONFIG_COUNTER
+#endif
+
+
+#endif // CATCH_CONFIG_COUNTER_HPP_INCLUDED
+#define INTERNAL_CATCH_UNIQUE_NAME_LINE2( name, line ) name##line
+#define INTERNAL_CATCH_UNIQUE_NAME_LINE( name, line ) INTERNAL_CATCH_UNIQUE_NAME_LINE2( name, line )
+#ifdef CATCH_CONFIG_COUNTER
+#  define INTERNAL_CATCH_UNIQUE_NAME( name ) INTERNAL_CATCH_UNIQUE_NAME_LINE( name, __COUNTER__ )
+#else
+#  define INTERNAL_CATCH_UNIQUE_NAME( name ) INTERNAL_CATCH_UNIQUE_NAME_LINE( name, __LINE__ )
+#endif
+
+#endif // CATCH_UNIQUE_NAME_HPP_INCLUDED
 
 
 
@@ -2843,6 +2839,7 @@ namespace Catch {
 #define CATCH_CONSTRUCTOR_HPP_INCLUDED
 
 #include <type_traits>
+#include <utility>
 
 namespace Catch {
     namespace Benchmark {
@@ -3939,8 +3936,6 @@ namespace Catch {
         Config( ConfigData const& data );
         ~Config() override; // = default in the cpp file
 
-        std::string const& getFilename() const;
-
         bool listTests() const;
         bool listTags() const;
         bool listReporters() const;
@@ -3959,7 +3954,7 @@ namespace Catch {
         // IConfig interface
         bool allowThrows() const override;
         std::ostream& stream() const override;
-        void resetOutputStream() override;
+        std::string outputFilename() const override;
         std::string name() const override;
         bool includeSuccessfulResults() const override;
         bool warnAboutMissingAssertions() const override;
@@ -3988,10 +3983,10 @@ namespace Catch {
 
     private:
 
-        IStream* openStream();
+        IStream const* openStream();
         ConfigData m_data;
 
-        Detail::unique_ptr<IStream> m_stream;
+        Detail::unique_ptr<const IStream> m_stream;
         TestSpec m_testSpec;
         bool m_hasTestFilters = false;
     };
@@ -4166,9 +4161,15 @@ namespace Catch {
 #ifndef CATCH_INTERFACES_REPORTER_FACTORY_HPP_INCLUDED
 #define CATCH_INTERFACES_REPORTER_FACTORY_HPP_INCLUDED
 
+
+#include <string>
+
 namespace Catch {
 
     struct ReporterConfig;
+    struct IStreamingReporter;
+    using IStreamingReporterPtr = Detail::unique_ptr<IStreamingReporter>;
+
 
     struct IReporterFactory {
         virtual ~IReporterFactory(); // = default
@@ -4183,6 +4184,9 @@ namespace Catch {
 #endif // CATCH_INTERFACES_REPORTER_FACTORY_HPP_INCLUDED
 
 namespace Catch {
+
+    struct IStreamingReporter;
+    using IStreamingReporterPtr = Detail::unique_ptr<IStreamingReporter>;
 
     template <typename T>
     class ReporterFactory : public IReporterFactory {
@@ -5773,8 +5777,6 @@ namespace Catch {
 
 #endif // CATCH_TIMER_HPP_INCLUDED
 
-#include <string>
-
 namespace Catch {
 
     class Section : Detail::NonCopyable {
@@ -5950,6 +5952,7 @@ struct AutoReg : Detail::NonCopyable {
 
 
 #endif // CATCH_TEST_REGISTRY_HPP_INCLUDED
+
 
 // All of our user-facing macros support configuration toggle, that
 // forces them to be defined prefixed with CATCH_. We also like to
@@ -6147,6 +6150,7 @@ struct AutoReg : Detail::NonCopyable {
 
 #ifndef CATCH_TEMPLATE_TEST_REGISTRY_HPP_INCLUDED
 #define CATCH_TEMPLATE_TEST_REGISTRY_HPP_INCLUDED
+
 
 
 // GCC 5 and older do not properly handle disabling unused-variable warning
@@ -7823,6 +7827,8 @@ namespace Catch {
 #define CATCH_CONTAINER_NONMEMBERS_HPP_INCLUDED
 
 
+#include <cstddef>
+#include <initializer_list>
 
 // We want a simple polyfill over `std::empty`, `std::size` and so on
 // for C++14 or C++ libraries with incomplete support.
@@ -8015,7 +8021,7 @@ namespace Catch {
     class ExceptionTranslatorRegistry : public IExceptionTranslatorRegistry {
     public:
         ~ExceptionTranslatorRegistry();
-        virtual void registerTranslator( const IExceptionTranslator* translator );
+        void registerTranslator( const IExceptionTranslator* translator );
         std::string translateActiveException() const override;
         std::string tryTranslators() const;
 
@@ -9057,12 +9063,6 @@ namespace Catch {
 
 #ifndef CATCH_XMLWRITER_HPP_INCLUDED
 #define CATCH_XMLWRITER_HPP_INCLUDED
-
-
-// FixMe: Without this include (and something inside it), MSVC goes crazy
-//        and reports that calls to XmlEncode's op << are ambiguous between
-//        the declaration and definition.
-//        It also has to be in the header.
 
 
 #include <vector>
@@ -10936,6 +10936,108 @@ namespace Catch {
 #endif // CATCH_REPORTER_HELPERS_HPP_INCLUDED
 
 
+#ifndef CATCH_REPORTER_INCREMENTAL_BASE_HPP_INCLUDED
+#define CATCH_REPORTER_INCREMENTAL_BASE_HPP_INCLUDED
+
+#include <iosfwd>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <functional>
+
+namespace Catch {
+
+    // A "section traversal" represents a single, depth-first execution path within a test case.
+    struct IncrementalSectionTraversal {
+        IncrementalSectionTraversal();
+        IncrementalSectionTraversal( IncrementalSectionTraversal const& ) = delete;
+        IncrementalSectionTraversal& operator=( const IncrementalSectionTraversal&) = delete;
+        IncrementalSectionTraversal( IncrementalSectionTraversal&& ) = default;
+        IncrementalSectionTraversal& operator=( IncrementalSectionTraversal&& ) = default;
+
+        void addAssertion( const Catch::AssertionStats& assertion );
+
+        bool isComplete() const;
+        bool isOk() const;
+
+        std::vector<Catch::SectionInfo> allSectionInfo;
+        std::vector<Catch::SectionStats> allSectionStats;
+        std::vector<std::pair<Catch::AssertionStats, std::string>> allAssertionsWithExpansions;
+
+        std::string fatalSignalName;
+        std::pair<std::string, size_t> fatalSignalSourceInfo;
+
+        Catch::TestRunInfo testRunInfo;
+        Catch::GroupInfo testGroupInfo;
+        std::vector<Catch::Tag> testTags;
+
+        std::chrono::system_clock::time_point startTime;
+        std::chrono::system_clock::time_point finishTime;
+
+        std::ostringstream stdOutStream;
+        std::ostringstream stdErrStream;
+    };
+
+    // An "incremental" reporter is a simplified model vs. cumulative that presents execution progress in the form of
+    // section traversals. In addition to the standarding IStreamingReporter overrides being available, incremental
+    // reporters may also use the start and end of section traversals as signals.
+    class IncrementalReporterBase : public IStreamingReporter {
+        public:
+            IncrementalReporterBase( const ReporterConfig& config );
+            ~IncrementalReporterBase() override {}
+
+            using SectionTraversalRef = std::reference_wrapper<const IncrementalSectionTraversal>;
+
+            const std::vector<SectionTraversalRef> getTraversals();
+
+        private:
+            Catch::TestRunInfo m_currentTestRunInfo;
+            Catch::GroupInfo m_currentTestGroupInfo;
+            std::vector<Catch::Tag> m_currentTestTags;
+
+            std::vector<IncrementalSectionTraversal> m_completedTraversals;
+            IncrementalSectionTraversal m_currentTraversal;
+
+            Detail::unique_ptr<const Catch::IStream> m_incrementalOutputStream;
+
+        protected:
+            bool incrementalOutputSupported() const;
+            void resetIncrementalOutput();
+
+            std::reference_wrapper<std::ostream> m_outputStreamRef;
+
+            // IStreamingReporter: Default empty implementation provided
+            void noMatchingTestCases( std::string const& ) override {};
+            void testCaseEnded( TestCaseStats const& ) override {}
+            void testGroupEnded( TestGroupStats const& ) override {}
+            void assertionStarting( AssertionInfo const& ) override {}
+            void testRunEnded( TestRunStats const& ) override {}
+            void skipTest( TestCaseInfo const& ) override {}
+
+            // IStreamingReporter: augmented implementations for incremental behavior
+            void testRunStarting( TestRunInfo const& ) override;
+            void testGroupStarting( GroupInfo const& ) override;
+            void testCaseStarting( TestCaseInfo const& ) override;
+            void sectionStarting( SectionInfo const& sectionInfo ) override;
+            bool assertionEnded( AssertionStats const& assertionStats ) override;
+            void sectionEnded( SectionStats const& sectionStats ) override;
+            void fatalErrorEncountered( StringRef name ) override;
+
+            // New "hooks" for incremental reporters
+            virtual void sectionTraversalStarting( const std::vector<SectionTraversalRef> ) {}
+            virtual void sectionTraversalEnded( const std::vector<SectionTraversalRef> ) {}
+
+            // IStreamingReporter:: required boilerplate
+            void listReporters( std::vector<ReporterDescription> const& descriptions ) override;
+            void listTests( std::vector<TestCaseHandle> const& tests ) override;
+            void listTags( std::vector<TagInfo> const& tags ) override;
+    };
+
+} // end namespace Catch
+
+#endif // CATCH_REPORTER_CUMULATIVE_BASE_HPP_INCLUDED
+
+
 #ifndef CATCH_REPORTER_JUNIT_HPP_INCLUDED
 #define CATCH_REPORTER_JUNIT_HPP_INCLUDED
 
@@ -11218,136 +11320,92 @@ namespace Catch {
 #endif
 
 namespace Catch {
+    using SectionTraversalRef = IncrementalReporterBase::SectionTraversalRef;
 
-    // An "unwind context" represents a single depth-first traversal of a section hierarchy used for
-    // text execution. E.g. a single test case could have a structure such as:
-    //
-    // <TestCase name="explanatory test case">
-    //   <Section name="first top-level section">
-    //     <Section name="first subsection"/>
-    //     <Section name="second subsection"/>
-    //   </Section>
-    //   <Section name="second top-level section"/>
-    // </TestCase>
-    //
-    // This test case has three unique root-to-leaf traversals and thus three "unwinds":
-    //  1. explanatory test case / first top-level section / first subsection
-    //  2. explanatory test case / first top-level section / second subsection
-    //  3. explanatory test case / second top-level section
-    class StreamingReporterUnwindContext {
-    public:
-        StreamingReporterUnwindContext();
-        std::vector<SectionInfo> allSectionInfo;
-        std::vector<SectionStats> allSectionStats;
-        std::vector<AssertionStats> allTerminatedAssertions;
-        std::vector<std::string> allExpandedAssertionStatements;
-        std::string startTimestamp;
-        std::string endTimestamp;
-        std::string stdOut;
-        std::string stdErr;
-        bool hasFatalError;
-        std::string fatalAssertionSource;
-        unsigned long long elapsedNanoseconds;
+    class VstestResult {
+        public:
+            static std::vector<VstestResult> parseTraversals(
+                const std::vector<SectionTraversalRef>& traversals );
 
-    public:
-        void addAssertion( AssertionStats const& assertionStats );
-        void onFatalErrorCondition( Catch::StringRef signalName );
-        bool unwindIsComplete() const;
-        void clear();
-        bool hasFailures() const;
-        bool hasMessages() const;
-        std::string constructFullName() const;
-        std::string constructErrorMessage() const;
-        std::string constructStackMessage(std::string const& sourcePrefix) const;
-        std::string constructDuration() const;
+            const std::string testId;
+            const std::string testExecutionId;
+            std::vector<SectionTraversalRef> traversals;
+
+            bool isOk() const;
+
+            std::string getRootTestName() const;
+            std::string getRootRunName() const;
+            const std::vector<Catch::Tag> getRootTestTags() const;
+
+            std::chrono::system_clock::time_point getStartTime() const;
+            std::chrono::system_clock::time_point getFinishTime() const;
+
+        private:
+            VstestResult();
     };
 
-    // VstestEntry is a container representing the collection of unwind contexts and associated
-    // metadata associated with a single Testcase.
-    class VstestEntry {
-    public:
-        VstestEntry( std::string name );
+    class VstestTrxDocument {
+        public:
+            static void serialize(
+                std::ostream& stream,
+                std::vector<VstestResult>& results,
+                const std::string& sourcePrefix = "",
+                const std::vector<std::string>& attachmentPaths = {} );
 
-    public:
-        std::string name;
-        std::vector<Catch::Tag> tags;
-        std::string testId;
-        std::string executionId;
-        std::string startTimestamp;
-        std::string endTimestamp;
-        std::vector<StreamingReporterUnwindContext> unwindContexts;
+        private:
+            VstestTrxDocument(
+                std::ostream& stream,
+                std::vector<VstestResult>& results,
+                const std::string& sourcePrefix,
+                const std::vector<std::string>& attachmentPaths );
 
-    public:
-        bool hasFailures() const;
-        std::string constructDuration() const;
+            void startWriteTestRun();
+            void writeTimes();
+            void writeResults();
+            void writeTopLevelResult( const VstestResult& result );
+            void writeTimestampAttributes(
+                std::chrono::system_clock::time_point start,
+                std::chrono::system_clock::time_point finish );
+            void startWriteTestResult( const VstestResult& result );
+            void startWriteTestResult(
+                const std::string& testId,
+                const std::string& testExecutionId,
+                const std::string& testName );
+            void writeTraversalOutput( const IncrementalSectionTraversal& traversal );
+            void writeInnerResult( const VstestResult& result, const IncrementalSectionTraversal& traversal );
+            void writeTestDefinitions();
+            void writeTestLists();
+            void writeTestEntries();
+            void writeSummary( const std::vector<std::string>& attachmentPaths );
+
+        private:
+            void serializeSourceInfo ( std::ostringstream& stream, const std::string& file, const size_t line );
+            std::string getErrorMessageForTraversal( const IncrementalSectionTraversal& traversal );
+            std::string getStackMessageForTraversal( const IncrementalSectionTraversal& traversal );
+            std::string getFullTestNameForTraversal( const IncrementalSectionTraversal& traversal );
+
+        private:
+            XmlWriter m_xml;
+            const std::vector<VstestResult> m_results;
+            const std::string m_sourcePrefix;
+            const std::vector<std::string> m_attachmentPaths;
+            const std::string m_defaultTestListId;
     };
 
-    class VstestReporter : public StreamingReporterBase {
-    private:
-        enum class TrxEmissionType {
-            // This is an intermediate emission (during tests) that's assumed to be catastrophic
-            // failure if not later replaced by final emission
-            Intermediate,
-            // This is the final emission (after all tests) with all results present
-            Final,
-        };
+    class VstestReporter : public IncrementalReporterBase {
+        public:
+            VstestReporter( ReporterConfig const& _config );
+            ~VstestReporter() override {}
 
-    private:
-        Detail::unique_ptr<XmlWriter> m_xml;
-        TrxEmissionType m_emissionType;
-        Timer m_timer;
-        std::string m_runName;
-        std::string m_defaultTestListId;
-        std::vector<Catch::Tag> m_currentTestCaseTags;
-        std::vector<VstestEntry> m_completedTestEntries;
-        StreamingReporterUnwindContext m_currentUnwindContext;
-        bool m_handlingFatalSignal;
-        bool m_doIncrementalXmlOutput;
+            static std::string getDescription();
 
-    public:
-        VstestReporter( ReporterConfig const& _config );
-        ~VstestReporter() override {}
+        protected:
+            void sectionStarting( SectionInfo const& sectionInfo ) override;
+            void sectionTraversalEnded( std::vector<SectionTraversalRef> traversals ) override;
+            void testRunEnded( const Catch::TestRunStats& testStats ) override;
 
-        static std::string getDescription() {
-            return "Reports test in .trx XML format, conformant to Vstest v2";
-        }
-
-    private: // trx emission methods
-        void startTestRunElement();
-        void writeTimesElement();
-        void writeResults();
-        void startUnitTestResultElement(
-            const std::string& executionId,
-            const std::string& testId,
-            const std::string& name );
-        void writeToplevelResult( VstestEntry const& testEntry );
-        void writeInnerResult(
-            StreamingReporterUnwindContext const& unwindContext,
-            const std::string& parentExecutionId );
-        void writeUnwindOutput(StreamingReporterUnwindContext const& unwindContext );
-        void writeTestDefinitions();
-        void writeTestEntries();
-        void writeTestLists();
-        void writeSummaryElement();
-
-        void emitTrx();
-
-    private:
-        void flushCurrentUnwindContext();
-
-    public: // StreamingReporterBase implementation
-        void noMatchingTestCases( std::string const& s ) override;
-        void fatalErrorEncountered( Catch::StringRef signalName ) override;
-        void testRunStarting( TestRunInfo const& testInfo ) override;
-        void testGroupStarting( GroupInfo const& groupInfo ) override;
-        void testCaseStarting( TestCaseInfo const& testInfo ) override;
-        void sectionStarting( SectionInfo const& sectionInfo ) override;
-        void assertionStarting( AssertionInfo const& ) override;
-        bool assertionEnded( AssertionStats const& assertionStats ) override;
-        void sectionEnded( SectionStats const& sectionStats ) override;
-        void testCaseEnded( TestCaseStats const& testCaseStats ) override;
-        void testGroupEnded( TestGroupStats const& testGroupStats ) override;
-        void testRunEnded( TestRunStats const& testRunStats ) override;
+        private:
+            void emitNewTrx( const std::vector<SectionTraversalRef>& traversals );
     };
 
 } // end namespace Catch

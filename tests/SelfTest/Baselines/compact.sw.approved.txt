@@ -1406,6 +1406,24 @@ Reporters.tests.cpp:<line number>: passed: listingString, Contains( "fake test n
 
 " ( contains: "fake test name" and contains: "fakeTestTag" ) with 1 message: 'Tested reporter: teamcity'
 Reporters.tests.cpp:<line number>: passed: !(factories.empty()) for: !false
+Reporters.tests.cpp:<line number>: passed: listingString, Contains("fakeTag"s) for: "All available tags:
+   1  [fakeTag]
+1 tag
+
+" contains: "fakeTag" with 1 message: 'Tested reporter: vstest'
+Reporters.tests.cpp:<line number>: passed: !(factories.empty()) for: !false
+Reporters.tests.cpp:<line number>: passed: listingString, Contains("fake reporter"s) for: "Available reporters:
+  fake reporter:  fake description
+
+" contains: "fake reporter" with 1 message: 'Tested reporter: vstest'
+Reporters.tests.cpp:<line number>: passed: !(factories.empty()) for: !false
+Reporters.tests.cpp:<line number>: passed: listingString, Contains( "fake test name"s ) && Contains( "fakeTestTag"s ) for: "All available test cases:
+  fake test name
+      [fakeTestTag]
+1 test case
+
+" ( contains: "fake test name" and contains: "fakeTestTag" ) with 1 message: 'Tested reporter: vstest'
+Reporters.tests.cpp:<line number>: passed: !(factories.empty()) for: !false
 Reporters.tests.cpp:<line number>: passed: listingString, Contains("fakeTag"s) for: "<?xml version="1.0" encoding="UTF-8"?>
 <TagsFromMatchingTests>
   <Tag>

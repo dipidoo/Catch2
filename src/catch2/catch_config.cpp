@@ -44,7 +44,7 @@ namespace Catch {
     Config::~Config() = default;
 
 
-    std::string const& Config::getFilename() const {
+    std::string Config::outputFilename() const {
         return m_data.outputFilename ;
     }
 
@@ -94,12 +94,8 @@ namespace Catch {
         ::standardErrorRedirect() const                { return m_data.standardErrorRedirect; }
 #endif
 
-    IStream* Config::openStream() {
+    IStream const* Config::openStream() {
         return Catch::makeStream(m_data.outputFilename);
-    }
-
-    void Config::resetOutputStream() {
-        m_stream.reset( Catch::makeStream( m_data.outputFilename ) );
     }
 
 } // end namespace Catch

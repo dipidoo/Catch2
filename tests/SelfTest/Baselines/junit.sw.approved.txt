@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuitesloose text artifact
 >
-  <testsuite name="<exe-name>" errors="17" failures="132" tests="2095" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+  <testsuite name="<exe-name>" errors="17" failures="132" tests="2101" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
     <properties>
       <property name="filters" value="~[!nonportable]~[!benchmark]~[approvals] *"/>
       <property name="random-seed" value="1"/>
@@ -1123,6 +1123,9 @@ Matchers.tests.cpp:<line number>
     <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/teamcity reporter lists tags" time="{duration}" status="run"/>
     <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/teamcity reporter lists reporters" time="{duration}" status="run"/>
     <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/teamcity reporter lists tests" time="{duration}" status="run"/>
+    <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/vstest reporter lists tags" time="{duration}" status="run"/>
+    <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/vstest reporter lists reporters" time="{duration}" status="run"/>
+    <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/vstest reporter lists tests" time="{duration}" status="run"/>
     <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/xml reporter lists tags" time="{duration}" status="run"/>
     <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/xml reporter lists reporters" time="{duration}" status="run"/>
     <testcase classname="<exe-name>.global" name="Reporter's write listings to provided stream/xml reporter lists tests" time="{duration}" status="run"/>

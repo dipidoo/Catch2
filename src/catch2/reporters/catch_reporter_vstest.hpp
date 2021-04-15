@@ -6,9 +6,8 @@
 #define CATCH_REPORTER_VSTEST_HPP_INCLUDED
 
 #include <catch2/catch_test_case_info.hpp>
-#include <catch2/catch_timer.hpp>
 #include <catch2/internal/catch_xmlwriter.hpp>
-#include <catch2/reporters/catch_reporter_streaming_base.hpp>
+#include <catch2/reporters/catch_reporter_incremental_base.hpp>
 
 #ifdef __clang__
 #   pragma clang diagnostic push
@@ -16,136 +15,92 @@
 #endif
 
 namespace Catch {
+    using SectionTraversalRef = IncrementalReporterBase::SectionTraversalRef;
 
-    // An "unwind context" represents a single depth-first traversal of a section hierarchy used for
-    // text execution. E.g. a single test case could have a structure such as:
-    //
-    // <TestCase name="explanatory test case">
-    //   <Section name="first top-level section">
-    //     <Section name="first subsection"/>
-    //     <Section name="second subsection"/>
-    //   </Section>
-    //   <Section name="second top-level section"/>
-    // </TestCase>
-    //
-    // This test case has three unique root-to-leaf traversals and thus three "unwinds":
-    //  1. explanatory test case / first top-level section / first subsection
-    //  2. explanatory test case / first top-level section / second subsection
-    //  3. explanatory test case / second top-level section
-    class StreamingReporterUnwindContext {
-    public:
-        StreamingReporterUnwindContext();
-        std::vector<SectionInfo> allSectionInfo;
-        std::vector<SectionStats> allSectionStats;
-        std::vector<AssertionStats> allTerminatedAssertions;
-        std::vector<std::string> allExpandedAssertionStatements;
-        std::string startTimestamp;
-        std::string endTimestamp;
-        std::string stdOut;
-        std::string stdErr;
-        bool hasFatalError;
-        std::string fatalAssertionSource;
-        unsigned long long elapsedNanoseconds;
+    class VstestResult {
+        public:
+            static std::vector<VstestResult> parseTraversals(
+                const std::vector<SectionTraversalRef>& traversals );
 
-    public:
-        void addAssertion( AssertionStats const& assertionStats );
-        void onFatalErrorCondition( Catch::StringRef signalName );
-        bool unwindIsComplete() const;
-        void clear();
-        bool hasFailures() const;
-        bool hasMessages() const;
-        std::string constructFullName() const;
-        std::string constructErrorMessage() const;
-        std::string constructStackMessage(std::string const& sourcePrefix) const;
-        std::string constructDuration() const;
+            const std::string testId;
+            const std::string testExecutionId;
+            std::vector<SectionTraversalRef> traversals;
+
+            bool isOk() const;
+
+            std::string getRootTestName() const;
+            std::string getRootRunName() const;
+            const std::vector<Catch::Tag> getRootTestTags() const;
+
+            std::chrono::system_clock::time_point getStartTime() const;
+            std::chrono::system_clock::time_point getFinishTime() const;
+
+        private:
+            VstestResult();
     };
 
-    // VstestEntry is a container representing the collection of unwind contexts and associated
-    // metadata associated with a single Testcase.
-    class VstestEntry {
-    public:
-        VstestEntry( std::string name );
+    class VstestTrxDocument {
+        public:
+            static void serialize(
+                std::ostream& stream,
+                std::vector<VstestResult>& results,
+                const std::string& sourcePrefix = "",
+                const std::vector<std::string>& attachmentPaths = {} );
 
-    public:
-        std::string name;
-        std::vector<Catch::Tag> tags;
-        std::string testId;
-        std::string executionId;
-        std::string startTimestamp;
-        std::string endTimestamp;
-        std::vector<StreamingReporterUnwindContext> unwindContexts;
+        private:
+            VstestTrxDocument(
+                std::ostream& stream,
+                std::vector<VstestResult>& results,
+                const std::string& sourcePrefix,
+                const std::vector<std::string>& attachmentPaths );
 
-    public:
-        bool hasFailures() const;
-        std::string constructDuration() const;
+            void startWriteTestRun();
+            void writeTimes();
+            void writeResults();
+            void writeTopLevelResult( const VstestResult& result );
+            void writeTimestampAttributes(
+                std::chrono::system_clock::time_point start,
+                std::chrono::system_clock::time_point finish );
+            void startWriteTestResult( const VstestResult& result );
+            void startWriteTestResult(
+                const std::string& testId,
+                const std::string& testExecutionId,
+                const std::string& testName );
+            void writeTraversalOutput( const IncrementalSectionTraversal& traversal );
+            void writeInnerResult( const VstestResult& result, const IncrementalSectionTraversal& traversal );
+            void writeTestDefinitions();
+            void writeTestLists();
+            void writeTestEntries();
+            void writeSummary( const std::vector<std::string>& attachmentPaths );
+
+        private:
+            void serializeSourceInfo ( std::ostringstream& stream, const std::string& file, const size_t line );
+            std::string getErrorMessageForTraversal( const IncrementalSectionTraversal& traversal );
+            std::string getStackMessageForTraversal( const IncrementalSectionTraversal& traversal );
+            std::string getFullTestNameForTraversal( const IncrementalSectionTraversal& traversal );
+
+        private:
+            XmlWriter m_xml;
+            const std::vector<VstestResult> m_results;
+            const std::string m_sourcePrefix;
+            const std::vector<std::string> m_attachmentPaths;
+            const std::string m_defaultTestListId;
     };
 
-    class VstestReporter : public StreamingReporterBase {
-    private:
-        enum class TrxEmissionType {
-            // This is an intermediate emission (during tests) that's assumed to be catastrophic
-            // failure if not later replaced by final emission
-            Intermediate,
-            // This is the final emission (after all tests) with all results present
-            Final,
-        };
+    class VstestReporter : public IncrementalReporterBase {
+        public:
+            VstestReporter( ReporterConfig const& _config );
+            ~VstestReporter() override {}
 
-    private:
-        Detail::unique_ptr<XmlWriter> m_xml;
-        TrxEmissionType m_emissionType;
-        Timer m_timer;
-        std::string m_runName;
-        std::string m_defaultTestListId;
-        std::vector<Catch::Tag> m_currentTestCaseTags;
-        std::vector<VstestEntry> m_completedTestEntries;
-        StreamingReporterUnwindContext m_currentUnwindContext;
-        bool m_handlingFatalSignal;
-        bool m_doIncrementalXmlOutput;
+            static std::string getDescription();
 
-    public:
-        VstestReporter( ReporterConfig const& _config );
-        ~VstestReporter() override {}
+        protected:
+            void sectionStarting( SectionInfo const& sectionInfo ) override;
+            void sectionTraversalEnded( std::vector<SectionTraversalRef> traversals ) override;
+            void testRunEnded( const Catch::TestRunStats& testStats ) override;
 
-        static std::string getDescription() {
-            return "Reports test in .trx XML format, conformant to Vstest v2";
-        }
-
-    private: // trx emission methods
-        void startTestRunElement();
-        void writeTimesElement();
-        void writeResults();
-        void startUnitTestResultElement(
-            const std::string& executionId,
-            const std::string& testId,
-            const std::string& name );
-        void writeToplevelResult( VstestEntry const& testEntry );
-        void writeInnerResult(
-            StreamingReporterUnwindContext const& unwindContext,
-            const std::string& parentExecutionId );
-        void writeUnwindOutput(StreamingReporterUnwindContext const& unwindContext );
-        void writeTestDefinitions();
-        void writeTestEntries();
-        void writeTestLists();
-        void writeSummaryElement();
-
-        void emitTrx();
-
-    private:
-        void flushCurrentUnwindContext();
-
-    public: // StreamingReporterBase implementation
-        void noMatchingTestCases( std::string const& s ) override;
-        void fatalErrorEncountered( Catch::StringRef signalName ) override;
-        void testRunStarting( TestRunInfo const& testInfo ) override;
-        void testGroupStarting( GroupInfo const& groupInfo ) override;
-        void testCaseStarting( TestCaseInfo const& testInfo ) override;
-        void sectionStarting( SectionInfo const& sectionInfo ) override;
-        void assertionStarting( AssertionInfo const& ) override;
-        bool assertionEnded( AssertionStats const& assertionStats ) override;
-        void sectionEnded( SectionStats const& sectionStats ) override;
-        void testCaseEnded( TestCaseStats const& testCaseStats ) override;
-        void testGroupEnded( TestGroupStats const& testGroupStats ) override;
-        void testRunEnded( TestRunStats const& testRunStats ) override;
+        private:
+            void emitNewTrx( const std::vector<SectionTraversalRef>& traversals );
     };
 
 } // end namespace Catch

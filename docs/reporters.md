@@ -19,7 +19,7 @@ There are four reporters built in to the single include:
 * `console` writes as lines of text, formatted to a typical terminal width, with colours if a capable terminal is detected.
 * `compact` similar to `console` but optimised for minimal output - each entry on one line
 * `junit` writes xml that corresponds to Ant's [junitreport](http://help.catchsoftware.com/display/ET/JUnit+Format) target. Useful for build systems that understand Junit.
-Because of the way the junit format is structured the run must complete before anything is written. 
+Because of the way the junit format is structured the run must complete before anything is written.
 * `xml` writes an xml format tailored to Catch. Unlike `junit` this is a streaming format so results are delivered progressively.
 
 There are a few additional reporters, for specific build systems, in the Catch repository (in `include\reporters`) which you can `#include` in your project if you would like to make use of them.

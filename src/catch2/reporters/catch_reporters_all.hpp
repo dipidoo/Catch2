@@ -27,6 +27,7 @@
 #include <catch2/reporters/catch_reporter_cumulative_base.hpp>
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_helpers.hpp>
+#include <catch2/reporters/catch_reporter_incremental_base.hpp>
 #include <catch2/reporters/catch_reporter_junit.hpp>
 #include <catch2/reporters/catch_reporter_listening.hpp>
 #include <catch2/reporters/catch_reporter_sonarqube.hpp>

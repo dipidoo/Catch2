@@ -2555,6 +2555,18 @@ ok {test-number} - listingString, Contains( "fake test name"s ) && Contains( "fa
 # Reporter's write listings to provided stream
 ok {test-number} - !(factories.empty()) for: !false
 # Reporter's write listings to provided stream
+ok {test-number} - listingString, Contains("fakeTag"s) for: "All available tags:    1  [fakeTag] 1 tag  " contains: "fakeTag" with 1 message: 'Tested reporter: vstest'
+# Reporter's write listings to provided stream
+ok {test-number} - !(factories.empty()) for: !false
+# Reporter's write listings to provided stream
+ok {test-number} - listingString, Contains("fake reporter"s) for: "Available reporters:   fake reporter:  fake description  " contains: "fake reporter" with 1 message: 'Tested reporter: vstest'
+# Reporter's write listings to provided stream
+ok {test-number} - !(factories.empty()) for: !false
+# Reporter's write listings to provided stream
+ok {test-number} - listingString, Contains( "fake test name"s ) && Contains( "fakeTestTag"s ) for: "All available test cases:   fake test name       [fakeTestTag] 1 test case  " ( contains: "fake test name" and contains: "fakeTestTag" ) with 1 message: 'Tested reporter: vstest'
+# Reporter's write listings to provided stream
+ok {test-number} - !(factories.empty()) for: !false
+# Reporter's write listings to provided stream
 ok {test-number} - listingString, Contains("fakeTag"s) for: "<?xml version="1.0" encoding="UTF-8"?> <TagsFromMatchingTests>   <Tag>     <Count>1</Count>     <Aliases>       <Alias>fakeTag</Alias>     </Aliases>   </Tag> </TagsFromMatchingTests>" contains: "fakeTag" with 1 message: 'Tested reporter: xml'
 # Reporter's write listings to provided stream
 ok {test-number} - !(factories.empty()) for: !false
@@ -4180,5 +4192,5 @@ ok {test-number} - q3 == 23. for: 23.0 == 23.0
 ok {test-number} -
 # xmlentitycheck
 ok {test-number} -
-1..2094
+1..2100
 

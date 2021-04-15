@@ -173,6 +173,9 @@
     <testCase name="Reporter's write listings to provided stream/teamcity reporter lists tags" duration="{duration}"/>
     <testCase name="Reporter's write listings to provided stream/teamcity reporter lists reporters" duration="{duration}"/>
     <testCase name="Reporter's write listings to provided stream/teamcity reporter lists tests" duration="{duration}"/>
+    <testCase name="Reporter's write listings to provided stream/vstest reporter lists tags" duration="{duration}"/>
+    <testCase name="Reporter's write listings to provided stream/vstest reporter lists reporters" duration="{duration}"/>
+    <testCase name="Reporter's write listings to provided stream/vstest reporter lists tests" duration="{duration}"/>
     <testCase name="Reporter's write listings to provided stream/xml reporter lists tags" duration="{duration}"/>
     <testCase name="Reporter's write listings to provided stream/xml reporter lists reporters" duration="{duration}"/>
     <testCase name="Reporter's write listings to provided stream/xml reporter lists tests" duration="{duration}"/>

@@ -60,7 +60,7 @@ namespace Catch {
 
         virtual bool allowThrows() const = 0;
         virtual std::ostream& stream() const = 0;
-        virtual void resetOutputStream() = 0;
+        virtual std::string outputFilename() const = 0;
         virtual std::string name() const = 0;
         virtual bool includeSuccessfulResults() const = 0;
         virtual bool shouldDebugBreak() const = 0;

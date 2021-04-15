@@ -121,7 +121,7 @@ namespace Detail {
 
     ///////////////////////////////////////////////////////////////////////////
 
-    auto makeStream( std::string const& filename ) -> IStream* {
+    auto makeStream( std::string const& filename ) -> IStream const* {
         if( filename.empty() )
             return new Detail::CoutStream();
         else if( filename[0] == '%' ) {

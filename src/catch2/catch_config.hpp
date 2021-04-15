@@ -79,8 +79,6 @@ namespace Catch {
         Config( ConfigData const& data );
         ~Config() override; // = default in the cpp file
 
-        std::string const& getFilename() const;
-
         bool listTests() const;
         bool listTags() const;
         bool listReporters() const;
@@ -99,7 +97,7 @@ namespace Catch {
         // IConfig interface
         bool allowThrows() const override;
         std::ostream& stream() const override;
-        void resetOutputStream() override;
+        std::string outputFilename() const override;
         std::string name() const override;
         bool includeSuccessfulResults() const override;
         bool warnAboutMissingAssertions() const override;
@@ -128,10 +126,10 @@ namespace Catch {
 
     private:
 
-        IStream* openStream();
+        IStream const* openStream();
         ConfigData m_data;
 
-        Detail::unique_ptr<IStream> m_stream;
+        Detail::unique_ptr<const IStream> m_stream;
         TestSpec m_testSpec;
         bool m_hasTestFilters = false;
     };
