@@ -63,7 +63,7 @@ namespace Catch {
         RedirectedStdErr m_redirectedStdErr;
     };
 
-#if defined(CATCH_CONFIG_NEW_CAPTURE)
+#if defined(CATCH_CONFIG_EXPERIMENTAL_REDIRECT)
 
     // Windows's implementation of std::tmpfile is terrible (it tries
     // to create a file inside system folder, thus requiring elevated
@@ -76,19 +76,40 @@ namespace Catch {
         TempFile(TempFile&&) = delete;
         TempFile& operator=(TempFile&&) = delete;
 
-        TempFile();
+        TempFile(std::string filePath = "");
         ~TempFile();
 
+        void reopen();
         std::FILE* getFile();
+        std::string getPath();
         std::string getContents();
 
     private:
         std::FILE* m_file = nullptr;
-    #if defined(_MSC_VER)
-        char m_buffer[L_tmpnam] = { 0 };
-    #endif
+        std::string m_filePath;
+        bool m_shouldAutomaticallyDelete;
     };
 
+    class OutputRedirectSink {
+    public:
+        OutputRedirectSink( OutputRedirectSink const& ) = delete;
+        OutputRedirectSink& operator=( OutputRedirectSink const& ) = delete;
+        OutputRedirectSink( OutputRedirectSink&& ) = delete;
+        OutputRedirectSink& operator=( OutputRedirectSink&& ) = delete;
+
+        OutputRedirectSink( FILE* redirectionSource,
+                            std::string redirectionDestination = "" );
+        ~OutputRedirectSink();
+
+        std::string getContents();
+        void reset();
+
+    private:
+        FILE* m_originalSource;
+        int m_originalSourceDescriptor;
+        int m_originalSourceCopyDescriptor;
+        TempFile m_tempFile;
+    };
 
     class OutputRedirect {
     public:
@@ -97,15 +118,12 @@ namespace Catch {
         OutputRedirect(OutputRedirect&&) = delete;
         OutputRedirect& operator=(OutputRedirect&&) = delete;
 
-
         OutputRedirect(std::string& stdout_dest, std::string& stderr_dest);
         ~OutputRedirect();
 
     private:
-        int m_originalStdout = -1;
-        int m_originalStderr = -1;
-        TempFile m_stdoutFile;
-        TempFile m_stderrFile;
+        OutputRedirectSink m_stdOutRedirect;
+        OutputRedirectSink m_stdErrRedirect;
         std::string& m_stdoutDest;
         std::string& m_stderrDest;
     };

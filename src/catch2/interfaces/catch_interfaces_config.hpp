@@ -9,6 +9,7 @@
 #define CATCH_INTERFACES_CONFIG_HPP_INCLUDED
 
 #include <catch2/internal/catch_noncopyable.hpp>
+#include <catch2/internal/catch_output_redirect.hpp>
 
 #include <chrono>
 #include <iosfwd>
@@ -59,6 +60,7 @@ namespace Catch {
 
         virtual bool allowThrows() const = 0;
         virtual std::ostream& stream() const = 0;
+        virtual std::string outputFilename() const = 0;
         virtual std::string name() const = 0;
         virtual bool includeSuccessfulResults() const = 0;
         virtual bool shouldDebugBreak() const = 0;
@@ -76,12 +78,17 @@ namespace Catch {
         virtual UseColour useColour() const = 0;
         virtual std::vector<std::string> const& getSectionsToRun() const = 0;
         virtual Verbosity verbosity() const = 0;
-
+        virtual std::string sourcePathPrefix() const = 0;
+        virtual std::vector<std::string> const& reportAttachmentPaths() const = 0;
         virtual bool benchmarkNoAnalysis() const = 0;
         virtual int benchmarkSamples() const = 0;
         virtual double benchmarkConfidenceInterval() const = 0;
         virtual unsigned int benchmarkResamples() const = 0;
         virtual std::chrono::milliseconds benchmarkWarmupTime() const = 0;
+#ifdef CATCH_CONFIG_EXPERIMENTAL_REDIRECT
+        virtual OutputRedirectSink* standardOutputRedirect() const = 0;
+        virtual OutputRedirectSink* standardErrorRedirect() const = 0;
+#endif
     };
 }
 

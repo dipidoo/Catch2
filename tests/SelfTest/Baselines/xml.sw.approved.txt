@@ -12044,6 +12044,84 @@ All available test cases:
           !false
         </Expanded>
       </Expression>
+      <Section name="vstest reporter lists tags" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+        <Info>
+          Tested reporter: vstest
+        </Info>
+        <Expression success="true" type="REQUIRE_THAT" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+          <Original>
+            listingString, Contains("fakeTag"s)
+          </Original>
+          <Expanded>
+            "All available tags:
+   1  [fakeTag]
+1 tag
+
+" contains: "fakeTag"
+          </Expanded>
+        </Expression>
+        <OverallResults successes="1" failures="0" expectedFailures="0"/>
+      </Section>
+      <Expression success="true" type="REQUIRE_FALSE" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+        <Original>
+          !(factories.empty())
+        </Original>
+        <Expanded>
+          !false
+        </Expanded>
+      </Expression>
+      <Section name="vstest reporter lists reporters" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+        <Info>
+          Tested reporter: vstest
+        </Info>
+        <Expression success="true" type="REQUIRE_THAT" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+          <Original>
+            listingString, Contains("fake reporter"s)
+          </Original>
+          <Expanded>
+            "Available reporters:
+  fake reporter:  fake description
+
+" contains: "fake reporter"
+          </Expanded>
+        </Expression>
+        <OverallResults successes="1" failures="0" expectedFailures="0"/>
+      </Section>
+      <Expression success="true" type="REQUIRE_FALSE" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+        <Original>
+          !(factories.empty())
+        </Original>
+        <Expanded>
+          !false
+        </Expanded>
+      </Expression>
+      <Section name="vstest reporter lists tests" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+        <Info>
+          Tested reporter: vstest
+        </Info>
+        <Expression success="true" type="REQUIRE_THAT" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+          <Original>
+            listingString, Contains( "fake test name"s ) &amp;&amp; Contains( "fakeTestTag"s )
+          </Original>
+          <Expanded>
+            "All available test cases:
+  fake test name
+      [fakeTestTag]
+1 test case
+
+" ( contains: "fake test name" and contains: "fakeTestTag" )
+          </Expanded>
+        </Expression>
+        <OverallResults successes="1" failures="0" expectedFailures="0"/>
+      </Section>
+      <Expression success="true" type="REQUIRE_FALSE" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
+        <Original>
+          !(factories.empty())
+        </Original>
+        <Expanded>
+          !false
+        </Expanded>
+      </Expression>
       <Section name="xml reporter lists tags" filename="tests/<exe-name>/IntrospectiveTests/Reporters.tests.cpp" >
         <Info>
           Tested reporter: xml
@@ -19667,9 +19745,9 @@ loose text artifact
       </Section>
       <OverallResult success="true"/>
     </TestCase>
-    <OverallResults successes="1925" failures="149" expectedFailures="21"/>
+    <OverallResults successes="1931" failures="149" expectedFailures="21"/>
     <OverallResultsCases successes="266" failures="86" expectedFailures="4"/>
   </Group>
-  <OverallResults successes="1925" failures="148" expectedFailures="21"/>
+  <OverallResults successes="1931" failures="148" expectedFailures="21"/>
   <OverallResultsCases successes="266" failures="86" expectedFailures="4"/>
 </Catch>

@@ -39,6 +39,8 @@ exeNameParser = re.compile(r'''
     (?:.exe)?                 # Executable name contains .exe on Windows.
     \b
 ''', re.VERBOSE)
+vstestGuidParser = re.compile(r'"[a-fA-F0-9]{8}\-([a-fA-F0-9]{4}\-){3}[a-fA-F0-9]{12}"')
+vstestDurationParser = re.compile(r'[0-9]+:[0-9]{2}:[0-9]{2}\.[0-9]+')
 # This is a hack until something more reasonable is figured out
 specialCaseParser = re.compile(r'file\((\d+)\)')
 
@@ -151,6 +153,8 @@ def filterLine(line, isCompact):
     line = sinceEpochParser.sub('{since-epoch-report}', line)
     line = infParser.sub('INFINITY', line)
     line = nanParser.sub('NAN', line)
+    line = vstestGuidParser.sub('"{GUID}"', line)
+    line = vstestDurationParser.sub('{duration}', line)
     return line
 
 
@@ -205,7 +209,7 @@ approve("console.std", ["~[!nonportable]~[!benchmark]~[approvals] *", "--order",
 approve("console.swa4", ["~[!nonportable]~[!benchmark]~[approvals] *", "-s", "-w", "NoAssertions", "-x", "4", "--order", "lex", "--rng-seed", "1"])
 
 ## Common reporter checks: include passes, warn about No Assertions
-reporters = ('console', 'junit', 'xml', 'compact', 'sonarqube', 'tap', 'teamcity', 'automake')
+reporters = ('console', 'junit', 'xml', 'compact', 'sonarqube', 'tap', 'teamcity', 'automake', 'vstest')
 for reporter in reporters:
     filename = '{}.sw'.format(reporter)
     common_args = ["~[!nonportable]~[!benchmark]~[approvals] *", "-s", "-w", "NoAssertions", "--order", "lex", "--rng-seed", "1"]

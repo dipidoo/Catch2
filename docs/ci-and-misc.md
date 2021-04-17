@@ -69,6 +69,11 @@ Because of the incremental nature of Catch's test suites and ability to run spec
 ```-r sonarqube```
 [SonarQube Generic Test Data](https://docs.sonarqube.org/latest/analysis/generic-test/) XML format for tests metrics.
 
+### Vstest Reporter
+```-r vstest```
+
+The Vstest reporter emits an XML file that complies with the .trx schema (`vstst.xsd`) used by Visual Studio, Azure DevOps pipelines, and other vstest.console.exe consumers. Each depth-first traversal of a section hierarchy is treated as a single nested 'test case,' with individual results serving as data rows of the top-level test case defined by Catch2.
+
 ## Low-level tools
 
 ### Precompiled headers (PCHs)

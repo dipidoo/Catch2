@@ -427,9 +427,17 @@ namespace Catch {
                 timer.start();
                 invokeActiveTestCase();
 #else
-                OutputRedirect r(redirectedCout, redirectedCerr);
-                timer.start();
-                invokeActiveTestCase();
+                // If specific temporary destinations were specified via config, use those;
+                // otherwise just use temporary files.
+                if (m_config->standardOutputRedirect() || m_config->standardErrorRedirect()) {
+                    timer.start();
+                    invokeActiveTestCase();
+                } else {
+                    // Duplicated for RAII behavior of OutputRedirect
+                    OutputRedirect autoRedirect{ redirectedCout, redirectedCerr };
+                    timer.start();
+                    invokeActiveTestCase();
+                }
 #endif
             } else {
                 timer.start();
@@ -463,6 +471,7 @@ namespace Catch {
         // before running the tests themselves, or the binary can crash
         // without failed test being reported.
         FatalConditionHandler _;
+        (void)_; // suppress "unused" warnings
         m_activeTestCase->invoke();
     }
 

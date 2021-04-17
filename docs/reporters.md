@@ -19,7 +19,7 @@ There are four reporters built in to the single include:
 * `console` writes as lines of text, formatted to a typical terminal width, with colours if a capable terminal is detected.
 * `compact` similar to `console` but optimised for minimal output - each entry on one line
 * `junit` writes xml that corresponds to Ant's [junitreport](http://help.catchsoftware.com/display/ET/JUnit+Format) target. Useful for build systems that understand Junit.
-Because of the way the junit format is structured the run must complete before anything is written. 
+Because of the way the junit format is structured the run must complete before anything is written.
 * `xml` writes an xml format tailored to Catch. Unlike `junit` this is a streaming format so results are delivered progressively.
 
 There are a few additional reporters, for specific build systems, in the Catch repository (in `include\reporters`) which you can `#include` in your project if you would like to make use of them.
@@ -30,6 +30,7 @@ Use this when building as part of a TeamCity build to see results as they happen
 * `tap` writes in the TAP ([Test Anything Protocol](https://en.wikipedia.org/wiki/Test_Anything_Protocol)) format.
 * `automake` writes in a format that correspond to [automake  .trs](https://www.gnu.org/software/automake/manual/html_node/Log-files-generation-and-test-results-recording.html) files
 * `sonarqube` writes the [SonarQube Generic Test Data](https://docs.sonarqube.org/latest/analysis/generic-test/) XML format.
+* `vstest` writes the .trx (`vstst.xsd`) XML format as used by vstest.console.exe.
 
 You see what reporters are available from the command line by running with `--list-reporters`.
 
