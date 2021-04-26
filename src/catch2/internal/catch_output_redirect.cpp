@@ -113,11 +113,11 @@ namespace Catch {
         return m_file;
     }
 
-    std::string TempFile::getContents() {
+    std::string TempFile::getContents( int startPosition ) {
         fflush(m_file);
         std::stringstream sstr;
         char buffer[100] = {};
-        std::rewind(m_file);
+        std::fseek( m_file, startPosition, SEEK_SET );
         while (std::fgets(buffer, sizeof(buffer), m_file)) {
             sstr << buffer;
         }
@@ -127,8 +127,9 @@ namespace Catch {
     OutputRedirectSink::OutputRedirectSink(
         FILE* redirectionSource,
         std::string redirectionTemporaryFilePath ) 
-        : m_originalSource( redirectionSource )
-        , m_tempFile( redirectionTemporaryFilePath )
+        : m_originalSource( redirectionSource ),
+        m_lastGetPosition( 0 ),
+        m_tempFile( redirectionTemporaryFilePath )
     {
         // Disable buffering for the redirection stream -- this will persist even after the
         // redirection completes!
@@ -143,9 +144,19 @@ namespace Catch {
         (void)dup2( m_originalSourceCopyDescriptor, m_originalSourceDescriptor );
     }
 
-    std::string OutputRedirectSink::getContents() {
+    std::string OutputRedirectSink::getContentsFromPosition( int position ) {
         fflush( m_originalSource );
-        return m_tempFile.getContents();
+        auto result = m_tempFile.getContents( position );
+        m_lastGetPosition = position + result.size();
+        return result;
+    }
+
+    std::string OutputRedirectSink::getAllContents() {
+        return getContentsFromPosition( 0 );
+    }
+
+    std::string OutputRedirectSink::getLatestContents() {
+        return getContentsFromPosition( m_lastGetPosition );
     }
 
     void OutputRedirectSink::reset() {
@@ -168,8 +179,8 @@ namespace Catch {
         Catch::cerr() << std::flush;
         Catch::clog() << std::flush;
 
-        m_stdoutDest += m_stdOutRedirect.getContents();
-        m_stderrDest += m_stdErrRedirect.getContents();
+        m_stdoutDest += m_stdOutRedirect.getAllContents();
+        m_stderrDest += m_stdErrRedirect.getAllContents();
     }
 
 #endif // CATCH_CONFIG_EXPERIMENTAL_REDIRECT

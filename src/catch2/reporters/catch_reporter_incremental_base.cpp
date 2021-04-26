@@ -25,8 +25,7 @@ namespace Catch {
         IncrementalSectionTraversal::getFlushedStdOut() {
 #ifdef CATCH_CONFIG_EXPERIMENTAL_REDIRECT
         if ( m_stdOutSourceSink ) {
-            m_stdOutStream << m_stdOutSourceSink->getContents();
-            m_stdOutSourceSink->reset();
+            m_stdOutStream << m_stdOutSourceSink->getLatestContents();
         }
 #endif
         return m_stdOutStream;
@@ -36,8 +35,7 @@ namespace Catch {
         IncrementalSectionTraversal::getFlushedStdErr() {
 #ifdef CATCH_CONFIG_EXPERIMENTAL_REDIRECT
         if ( m_stdErrSourceSink ) {
-            m_stdErrStream << m_stdErrSourceSink->getContents();
-            m_stdErrSourceSink->reset();
+            m_stdErrStream << m_stdErrSourceSink->getLatestContents();
         }
 #endif
         return m_stdErrStream;

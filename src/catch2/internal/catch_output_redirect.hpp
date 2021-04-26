@@ -82,7 +82,7 @@ namespace Catch {
         void reopen();
         std::FILE* getFile();
         std::string getPath();
-        std::string getContents();
+        std::string getContents( int startPosition );
 
     private:
         std::FILE* m_file = nullptr;
@@ -101,13 +101,17 @@ namespace Catch {
                             std::string redirectionDestination = "" );
         ~OutputRedirectSink();
 
-        std::string getContents();
+        std::string getContentsFromPosition( int position );
+        std::string getAllContents();
+        std::string getLatestContents();
+
         void reset();
 
     private:
         FILE* m_originalSource;
         int m_originalSourceDescriptor;
         int m_originalSourceCopyDescriptor;
+        size_t m_lastGetPosition;
         TempFile m_tempFile;
     };
 
