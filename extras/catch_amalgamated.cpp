@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: BSL-1.0
 
 //  Catch v3.0.0-preview.3
-//  Generated: 2021-04-27 09:31:27.738058
+//  Generated: 2021-04-27 11:36:26.483782
 //  ----------------------------------------------------------
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
@@ -4015,7 +4015,7 @@ namespace Catch {
     std::string OutputRedirectSink::getContentsFromPosition( int position ) {
         fflush( m_originalSource );
         auto result = m_tempFile.getContents( position );
-        m_lastGetPosition = position + result.size();
+        m_lastGetPosition = position + (int)result.size();
         return result;
     }
 

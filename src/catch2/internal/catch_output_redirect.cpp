@@ -147,7 +147,7 @@ namespace Catch {
     std::string OutputRedirectSink::getContentsFromPosition( int position ) {
         fflush( m_originalSource );
         auto result = m_tempFile.getContents( position );
-        m_lastGetPosition = position + result.size();
+        m_lastGetPosition = position + (int)result.size();
         return result;
     }
 
