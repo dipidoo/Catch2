@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: BSL-1.0
 
 //  Catch v3.0.0-preview.3
-//  Generated: 2021-04-16 19:15:47.038227
+//  Generated: 2021-04-27 09:31:26.536677
 //  ----------------------------------------------------------
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
@@ -245,7 +245,7 @@ namespace Catch {
         void reopen();
         std::FILE* getFile();
         std::string getPath();
-        std::string getContents();
+        std::string getContents( int startPosition );
 
     private:
         std::FILE* m_file = nullptr;
@@ -264,13 +264,17 @@ namespace Catch {
                             std::string redirectionDestination = "" );
         ~OutputRedirectSink();
 
-        std::string getContents();
+        std::string getContentsFromPosition( int position );
+        std::string getAllContents();
+        std::string getLatestContents();
+
         void reset();
 
     private:
         FILE* m_originalSource;
         int m_originalSourceDescriptor;
         int m_originalSourceCopyDescriptor;
+        int m_lastGetPosition;
         TempFile m_tempFile;
     };
 

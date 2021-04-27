@@ -111,7 +111,7 @@ namespace Catch {
         FILE* m_originalSource;
         int m_originalSourceDescriptor;
         int m_originalSourceCopyDescriptor;
-        size_t m_lastGetPosition;
+        int m_lastGetPosition;
         TempFile m_tempFile;
     };
 
