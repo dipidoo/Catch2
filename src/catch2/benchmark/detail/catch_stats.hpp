@@ -110,7 +110,7 @@ namespace Catch {
                 double z1 = normal_quantile((1. - confidence_level) / 2.);
 
                 auto cumn = [n](double x) -> int {
-                    return std::lround(normal_cdf(x) * n); };
+                    return static_cast<int>(std::lround(normal_cdf(x) * n)); };
                 auto a = [bias, accel](double b) { return bias + b / (1. - accel * b); };
                 double b1 = bias + z1;
                 double b2 = bias - z1;
